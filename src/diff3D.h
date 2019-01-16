@@ -1,6 +1,6 @@
-// randMar.h - Gray-Scott Reaction-Diffusion using OpenACC
-// https://github.com/DrAl-HFS/GSRD.git
-// (c) GSRD Project Contributors Feb-October 2018
+// diff3D.h - 3D Diffusion under OpenACC
+// https://github.com/DrAl-HFS/Diffusion3D.git
+// (c) Diffusion3D Project Contributors Jan 2019
 
 #ifndef DIFF_3D_H
 #define DIFF_3D_H

@@ -1,3 +1,7 @@
+// diff3D.c - 3D Diffusion under OpenACC
+// https://github.com/DrAl-HFS/Diffusion3D.git
+// (c) Diffusion3D Project Contributors Jan 2019
+
 #include "diff3D.h"
 
 #ifdef __PGI   // HACKY
