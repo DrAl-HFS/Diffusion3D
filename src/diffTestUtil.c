@@ -45,12 +45,26 @@ void initW (D3S6IsoWeights * pW, DiffScalar r)
    printf("initW() - w[]=%G,%G\n", pW->w[0], pW->w[1]);
 } // initW
 
+static D3S6MapElem getMapElem (Index x, Index y, Index z, const V3I *pMax)
+{
+   D3S6MapElem m= 0;
+   m|= (0 != x) << 0;
+   m|= (pMax->x != x) << 1;
+   m|= (0 != y) << 2;
+   m|= (pMax->y != y) << 3;
+   m|= (0 != z) << 4;
+   m|= (pMax->z != z) << 5;
+   return(m);
+} // getMapElem
+
 size_t setDefaultMap (D3S6MapElem *pM, const V3I *pD)
 {
    const size_t nP= pD->x * pD->y;
    const size_t nV= nP * pD->z;
    const Stride s[2]= {pD->x,nP};
-   uint x, y, z;
+   const V3I md= { pD->x-1, pD->y-1, pD->z-1 };
+   Index x, y, z;
+   const D3S6MapElem me= getMapElem(1,1,1,&md);
 
    for (z=1; z < pD->z-1; z++)
    {
@@ -58,36 +72,37 @@ size_t setDefaultMap (D3S6MapElem *pM, const V3I *pD)
       {
          for (x=1; x < pD->x-1; x++)
          {
-            pM[x + y * s[0] + z * s[1]]= 0x3F;
+            pM[x + y * s[0] + z * s[1]]= me;
          }
       }
    }
+   z= pD->z-1;
+   for (y=0; y < pD->y; y++)
    {
-      size_t b1P= sizeof(*pM) * nP;
-      size_t onP= nP * (pD->z - 1);
-      // set boundaries to zero
-      memset(pM, 0x00, b1P);
-      //printf("plane: %zu, %zu\n", nP, b1P);
-      memset(pM+onP, 0x00, b1P);
+      for (x=0; x < pD->x; x++)
+      {
+         pM[x + y * s[0] + 0 * s[1]]= getMapElem(x,y,0,&md);
+         pM[x + y * s[0] + z * s[1]]= getMapElem(x,y,z,&md);
+      }
    }
    for (z=0; z < pD->z; z++)
    {
       y= pD->y-1;
       for (x=0; x < pD->x; x++)
       {
-         pM[x + 0 * s[0] + z * s[1]]= 0x00;
-         pM[x + y * s[0] + z * s[1]]= 0x00;
+         pM[x + 0 * s[0] + z * s[1]]= getMapElem(x,0,z,&md);
+         pM[x + y * s[0] + z * s[1]]= getMapElem(x,y,z,&md);
       }
       x= pD->x-1;
       for (y=0; y < pD->y; y++)
       {
-         pM[0 + y * s[0] + z * s[1]]= 0x00;
-         pM[x + y * s[0] + z * s[1]]= 0x00;
+         pM[0 + y * s[0] + z * s[1]]= getMapElem(0,y,z,&md);
+         pM[x + y * s[0] + z * s[1]]= getMapElem(x,y,z,&md);
       }
    }
 #if 1
    size_t t= 0;
-   for (size_t i=0; i < nV; i++) { t+= (0 == pM[i]); }
+   for (size_t i=0; i < nV; i++) { t+= pM[i] ^ me; }
    return(t);
 #endif
 } // setDefaultMap

@@ -1,4 +1,4 @@
-// diff3D.h - 3D Diffusion under OpenACC
+// diffTestUtil.h - 3D Diffusion under OpenACC
 // https://github.com/DrAl-HFS/Diffusion3D.git
 // (c) Diffusion3D Project Contributors Jan 2019
 
@@ -7,7 +7,7 @@
 
 #include "diff3D.h"
 
-#ifndef UTIL_H
+#if 0 //ndef UTIL_H
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,11 +19,12 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+#endif
+
 #ifndef MAX
 #define MAX(a,b) (a)>(b)?(a):(b)
 #endif
 
-#endif
 
 typedef int bool;
 
