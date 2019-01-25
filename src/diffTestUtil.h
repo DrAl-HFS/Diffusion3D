@@ -44,5 +44,6 @@ extern size_t saveSliceRGB (const char path[], const DiffScalar * pS, const uint
 extern DiffScalar sumStrideNS (const DiffScalar * pS, const size_t n, const Stride s);
 extern DiffScalar sumField (const DiffScalar * pS, const int phase, const DiffOrg *pO);
 extern DiffScalar diffStrideNS (DiffScalar * pR, const DiffScalar * pS1, const DiffScalar * pS2, const size_t n, const Stride s);
+extern DiffScalar relDiffStrideNS (DiffScalar * pR, const DiffScalar * pS1, const DiffScalar * pS2, const size_t n, const Stride s);
 
 #endif // DIFF_TEST_UTIL_H

@@ -21,6 +21,7 @@ static DiffTestContext gCtx={0,};
 void analyse (const DiffScalar * pS1, const DiffScalar * pS2, const int phase, const DiffOrg *pO)
 {
    // HACKY! may break for multi-phase
+   //DiffScalar d= relDiffStrideNS(gCtx.ws.p, pS1, pS2, gCtx.org.n1F, gCtx.org.stride[0]);
    DiffScalar d= diffStrideNS(gCtx.ws.p, pS1, pS2, gCtx.org.n1F, gCtx.org.stride[0]);
    DiffScalar s1= sumField(pS1, phase, pO);
    DiffScalar s2= sumField(pS2, phase, pO);
