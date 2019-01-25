@@ -39,8 +39,8 @@ bool initOrg (DiffOrg *pO, uint def, uint nP)
 
 void initW (D3S6IsoWeights * pW, DiffScalar r)
 {
-   pW->w[1]= r * (256 / 6) / 256;
-   //pW->w[1]= r / 6.0;
+   const uint f= 1<<8;
+   pW->w[1]= r * (f / 6) / f;
    pW->w[0]= 1 - 6 * pW->w[1];
    printf("initW() - w[]=%G,%G\n", pW->w[0], pW->w[1]);
 } // initW
@@ -128,25 +128,25 @@ void defFields (DiffScalar * pS, const DiffOrg *pO, DiffScalar v) // v[])
 
 float d2F3 (float dx, float dy, float dz) { return( dx*dx + dy*dy + dz*dz ); }
 
-void setDiffK (DiffScalar k[2], DiffScalar Dt, uint dim)
+void setDiffIsoK (DiffScalar k[2], const DiffScalar Dt, const uint dim)
 {
-   const DiffScalar var= 4 * Dt;
-   k[0]= 1.0 / pow(M_PI * var, dim / 2.0);
-   k[1]= -1.0 / var;
-} // setDiffK
+   const DiffScalar msd= 2 * Dt; // mean squared distance = variance
+   k[0]= pow(2 * M_PI * msd, -0.5 * dim); // * pow(0.5,dim); // wtf?
+   k[1]= -0.5 / msd;
+} // setDiffIsoK
 
 DiffScalar initPhaseAnalytic (DiffScalar * pS, const DiffOrg *pO, const uint phase, const DiffScalar v, const DiffScalar Dt)
 {
    if (phase < pO->nPhase)
    {
-      const float scale= 0.5; //0.25;
+      const float scale= 1.0; //0.25;
       const float s2= scale * scale;
       DiffScalar k[2], t= 0;
       V3F c;
       V3I i;
       c.x= pO->def.x/2; c.y= pO->def.y/2; c.z= pO->def.z/2;
 
-      setDiffK(k, Dt, 3);
+      setDiffIsoK(k, Dt, 3);
       pS+= phase * pO->phaseStride;
       for (i.z=0; i.z < pO->def.z; i.z++)
       {
@@ -237,15 +237,40 @@ DiffScalar sumField (const DiffScalar * pS, const int phase, const DiffOrg *pO) 
 
 DiffScalar diffStrideNS (DiffScalar * pR, const DiffScalar * pS1, const DiffScalar * pS2, const size_t n, const Stride s)
 {
-   DiffScalar sum= 0;
+   DiffScalar mom[3]= {0,0,0};
    if (pR)
    {
-      for (size_t i=0; i<n; i++) { sum+= pR[i * s] = pS1[i * s] - pS2[i * s]; }
+      for (size_t i=0; i<n; i++)
+      {
+         DiffScalar d= pS1[i * s] - pS2[i * s]; 
+         pR[i * s]= d;
+         if (0 != d)
+         {
+            mom[0]+= 1;
+            mom[1]+= d;
+            mom[2]+= d * d;
+         }
+      }
    }
    else
    {
-      for (size_t i=0; i<n; i++) { sum+= pS1[i * s] - pS2[i * s]; }
+      for (size_t i=0; i<n; i++)
+      {
+         DiffScalar d= pS1[i * s] - pS2[i * s]; 
+         if (0 != d)
+         {
+            mom[0]+= 1;
+            mom[1]+= d;
+            mom[2]+= d * d;
+         }
+      }
    }
-   return(sum);
+   if (mom[0] > 1)
+   {
+      DiffScalar mean= mom[1] / mom[0];
+      DiffScalar var= ( mom[2] - (mom[1] * mean) ) / (mom[0] - 1);
+      printf("diffStrideNS() - n,sum,mean,var= %G, %G, %G, %G\n", mom[0], mom[1], mean, var);
+   }
+   return(mom[1]);
 } // diffStrideNS
 

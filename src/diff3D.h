@@ -17,13 +17,11 @@
 #include <sys/time.h>
 #include <unistd.h>
 
-#ifndef MAX
-#define MAX(a,b) (a)>(b)?(a):(b)
 #endif
 
-#endif
-
-#define DIFF_DIM 3
+#define DIFF_DIM (3)
+#define DIFF_DIR (DIFF_DIM*2)
+//define DIFF_W (2)
 
 typedef double DiffScalar;
 
@@ -37,7 +35,7 @@ typedef struct
 {
    V3I      def;
    int      nPhase;
-   Stride   stride[DIFF_DIM], step[DIFF_DIM*2];
+   Stride   stride[DIFF_DIM], step[DIFF_DIR];
    size_t   phaseStride;
    size_t   n1F,n1B; // number elements in single field (phase) and single buffer (all phases)
 } DiffOrg;

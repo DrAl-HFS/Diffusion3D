@@ -7,17 +7,13 @@
 
 #include "diff3D.h"
 
-#if 0 //ndef UTIL_H
+#ifndef UTIL_H
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
-#include <math.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/time.h>
-#include <unistd.h>
+typedef struct
+{
+   size_t bytes;
+   union { void *p; size_t w; };
+} MemBuff;
 
 #endif
 
@@ -38,7 +34,7 @@ extern size_t setDefaultMap (D3S6MapElem *pM, const V3I *pD);
 extern void defFields (DiffScalar * pS, const DiffOrg *pO, DiffScalar v);
 
 extern float d2F3 (float dx, float dy, float dz);
-extern void setDiffK (DiffScalar k[2], DiffScalar Dt, uint dim);
+extern void setDiffK (DiffScalar k[2], const DiffScalar Dt, const uint dim);
 
 extern DiffScalar initPhaseAnalytic (DiffScalar * pS, const DiffOrg *pO, const uint phase, const DiffScalar v, const DiffScalar Dt);
 

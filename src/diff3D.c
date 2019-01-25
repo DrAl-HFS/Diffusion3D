@@ -15,7 +15,7 @@
 
 INLINE void setS6M (Stride s6m[6], const Stride step[6], const D3S6MapElem m)
 {
-   //for (int i=0; i<6; i++) { s[i]= ((1<<i) & m) ? pO->wraps[i] : 0; }
+   //for (int i=0; i<DIFF_DIR; i++) { s[i]= ((1<<i) & m) ? pO->wraps[i] : 0; }
    s6m[0]= ((0x01) & m) ? step[0] : 0;
    s6m[1]= ((0x02) & m) ? step[1] : 0;
    s6m[2]= ((0x04) & m) ? step[2] : 0;
@@ -27,7 +27,7 @@ INLINE void setS6M (Stride s6m[6], const Stride step[6], const D3S6MapElem m)
 INLINE DiffScalar diffuseD3S6M
 (
    const DiffScalar * pS, 
-   const Stride     s6m[6], 
+   const Stride     s6m[DIFF_DIR], 
    const DiffScalar w[2]
 )
 {
