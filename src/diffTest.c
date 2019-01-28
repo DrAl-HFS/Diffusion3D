@@ -18,6 +18,9 @@ static DiffTestContext gCtx={0,};
 
 /***/
 
+
+
+
 void analyse (const DiffScalar * pS1, const DiffScalar * pS2, const int phase, const DiffOrg *pO)
 {
    // HACKY! may break for multi-phase
@@ -67,21 +70,30 @@ void release (DiffTestContext *pC)
 
 int main (int argc, char *argv[])
 {
-   uint iT=0, iF= 0;
+   uint iT=0, iN= 0, iA= 0;
    int r= 0;
    if (init(&gCtx,1<<8))
    {
+      const DiffScalar m= 1.0;
       const Index zSlice= gCtx.org.def.z / 2;
-      defFields(gCtx.pSR[0], &(gCtx.org), 1); // 1, 16.0625 # 0.125, 4.03125 ???
-      printf("initPhaseAnalytic() %G\n", initPhaseAnalytic(gCtx.pSR[1], &(gCtx.org), 0, 1.0, 8));//11.0));
-      saveSliceRGB("rgb/analytic.rgb", gCtx.pSR[1], 0, zSlice, &(gCtx.org));
+
+      defFields(gCtx.pSR[0], &(gCtx.org), m);
 
       //pragma acc set device_type(acc_device_none)
       iT+= diffProcIsoD3S6M(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), gCtx.w, gCtx.pM, 100);
-      iF= iT & 1;
-      saveSliceRGB("rgb/numerical.rgb", gCtx.pSR[iF], 0, zSlice, &(gCtx.org));
+      iN= iT & 1;
+      saveSliceRGB("rgb/numerical.rgb", gCtx.pSR[iN], 0, zSlice, &(gCtx.org));
+      iA= iN^1;
 
-      analyse(gCtx.pSR[iF], gCtx.pSR[iF^1], 0, &(gCtx.org));
+      // Search for Diffusion-time moment
+      DiffScalar Dt= searchMin1(gCtx.pSR[iN], &(gCtx.org), m, 7.95, 8.25); // 8.18516
+      //Newtons method performs relatively poorly - due to discontinuity?
+      //DiffScalar Dt= searchNewton(gCtx.pSR[iN], &(gCtx.org), m, 7.95, 8.25);
+
+      initPhaseAnalytic(gCtx.pSR[iA], &(gCtx.org), 0, m, Dt);
+      saveSliceRGB("rgb/analytic.rgb", gCtx.pSR[iA], 0, zSlice, &(gCtx.org));
+
+      analyse(gCtx.pSR[iA], gCtx.pSR[iN], 0, &(gCtx.org));
    }
    release(&gCtx);
    printf("Complete\n");
