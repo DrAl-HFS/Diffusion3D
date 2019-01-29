@@ -26,14 +26,16 @@ void analyse (const DiffScalar * pS1, const DiffScalar * pS2, const int phase, c
    // HACKY! may break for multi-phase
    //DiffScalar d= relDiffStrideNS(gCtx.ws.p, pS1, pS2, gCtx.org.n1F, gCtx.org.stride[0]);
    DiffScalar d= diffStrideNS(gCtx.ws.p, pS1, pS2, gCtx.org.n1F, gCtx.org.stride[0]);
+   /*
    DiffScalar s1= sumField(pS1, phase, pO);
    DiffScalar s2= sumField(pS2, phase, pO);
    printf("sums= %G, %G\n", s1, s2);
+   */
    saveSliceRGB("rgb/diff.rgb", gCtx.ws.p, 0, pO->def.z / 2, &(gCtx.org));
 } // analyse
 
 
-bool init (DiffTestContext *pC, uint def)
+Bool32 init (DiffTestContext *pC, uint def)
 {
    if (initOrg(&(pC->org), def, 1))
    {

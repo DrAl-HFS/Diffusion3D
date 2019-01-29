@@ -12,7 +12,7 @@ const float gEpsilon= 1.0 / (1<<30);
 /***/
 
 
-bool initOrg (DiffOrg *pO, uint def, uint nP)
+Bool32 initOrg (DiffOrg *pO, uint def, uint nP)
 {
    size_t n= 1;
 
@@ -200,18 +200,6 @@ DiffScalar initPhaseAnalytic (DiffScalar * pR, const DiffOrg *pO, const uint pha
    }
    return(0);
 } // initPhaseAnalytic
-
-size_t saveBuff (const void * const pB, const char * const path, const size_t bytes)
-{
-   FILE *hF= fopen(path,"w");
-   if (hF)
-   {
-      size_t r= fwrite(pB, 1, bytes, hF);
-      fclose(hF);
-      if (r == bytes) { return(r); }
-   }
-   return(0);
-} // saveBuff
 
 size_t saveSliceRGB (const char path[], const DiffScalar * pS, const uint phase, const uint z, const DiffOrg *pO)
 {

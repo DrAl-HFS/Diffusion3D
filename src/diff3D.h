@@ -5,19 +5,8 @@
 #ifndef DIFF_3D_H
 #define DIFF_3D_H
 
-#ifndef UTIL_H
+#include "util.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
-#include <math.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/time.h>
-#include <unistd.h>
-
-#endif
 
 #define DIFF_DIM (3)
 #define DIFF_DIR (DIFF_DIM*2)
@@ -28,7 +17,7 @@ typedef double DiffScalar;
 typedef signed long  Index, Stride;
 
 typedef struct { Index x, y, z; } V3I;
-typedef struct { float x, y, z; } V3F;
+//typedef struct { float x, y, z; } V3F;
 
 // Buffer organisation (one or more planar/interleaved scalar fields)
 typedef struct
