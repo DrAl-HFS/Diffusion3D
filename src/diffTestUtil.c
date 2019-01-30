@@ -8,6 +8,7 @@ typedef struct { DiffScalar x, y; } SearchPoint;
 
 const float gEpsilon= 1.0 / (1<<30);
 
+typedef struct { V3I min, max; } MMV3I;
 
 /***/
 
@@ -42,34 +43,114 @@ Bool32 initOrg (DiffOrg *pO, uint def, uint nP)
    return(n > 0);
 } // initOrg
 
-void initW (D3S6IsoWeights * pW, DiffScalar r)
+void initW (DiffScalar w[], DiffScalar r, uint nHood, uint qBits)
 {
-   const uint f= 1<<8;
-   pW->w[1]= r * (f / 6) / f;
-   pW->w[0]= 1 - 6 * pW->w[1];
-   printf("initW() - w[]=%G,%G\n", pW->w[0], pW->w[1]);
+   if ((6 == nHood) && (qBits > 3))
+   {
+      const uint q= 1<<qBits;
+      //switch (nHood){
+      w[1]= r * (q / 6) / q; // ????
+   }
+   else
+   {
+      switch (nHood)
+      {
+         case 6 : w[1]= r / 6; break;
+         case 14 :   // 6 + 8/3 = 26/3
+            w[1]= (r * 3) / 26; // 6 * 3/26 = 18/26
+            w[2]= r / 26;       // 8 * 1/26 = 8/26
+            break;                        // 26/26
+         case 18 :   // 6 + 12/2 = 24/2
+            w[1]= (r * 2) / 24;  // 6 * 2/24  = 12/24
+            w[2]= r / 24;        // 12 * 1/24 = 12/24
+            break;                         // 24/24
+         case 26 :   // 6 + 12/2 + 8/3 = (36+36+16)/6 = 88/6
+            w[1]= (r * 6) / 88;  // 6 * 6/88  = 36/88
+            w[2]= (r * 3) / 88;  // 12 * 3/88 = 36/88
+            w[3]= (r * 2) / 88;  // 8 * 2/88  = 16/88
+            break;                         // 88/88
+      }
+   }
+   w[0]= 1 - 6 * w[1] ;
+   printf("initW() - w[]=%G,%G\n", w[0], w[1]);
 } // initW
 
-static D3S6MapElem getMapElem (Index x, Index y, Index z, const V3I *pMax)
+static uint getBoundaryM6 (Index x, Index y, Index z, const MMV3I *pMM)
 {
-   D3S6MapElem m= 0;
-   m|= (0 != x) << 0;
-   m|= (pMax->x != x) << 1;
-   m|= (0 != y) << 2;
-   m|= (pMax->y != y) << 3;
-   m|= (0 != z) << 4;
-   m|= (pMax->z != z) << 5;
-   return(m);
+   uint m6= 0;
+
+   m6|= (x > pMM->min.x) << 0;
+   m6|= (x < pMM->max.x) << 1;
+
+   m6|= (y > pMM->min.x) << 2;
+   m6|= (y < pMM->max.y) << 3;
+
+   m6|= (z > pMM->min.z) << 4;
+   m6|= (z < pMM->max.z) << 5;
+
+   return(m6);
+} // getBoundaryM6
+
+static uint getBoundaryM8 (const char m6)
+{
+   uint m8= 0;
+
+   m8|= ((m6 & 0x01) && (m6 & 0x04) && (m6 & 0x10)) << 0; // -X -Y -Z
+   m8|= ((m6 & 0x01) && (m6 & 0x04) && (m6 & 0x20)) << 1; // -X -Y +Z
+   m8|= ((m6 & 0x01) && (m6 & 0x08) && (m6 & 0x20)) << 2; // -X +Y +Z
+   m8|= ((m6 & 0x01) && (m6 & 0x08) && (m6 & 0x10)) << 3; // -X +Y -Z
+
+   m8|= ((m6 & 0x02) && (m6 & 0x04) && (m6 & 0x10)) << 4; // +X -Y -Z
+   m8|= ((m6 & 0x02) && (m6 & 0x04) && (m6 & 0x20)) << 5; // +X -Y +Z
+   m8|= ((m6 & 0x02) && (m6 & 0x08) && (m6 & 0x20)) << 6; // +X +Y +Z
+   m8|= ((m6 & 0x02) && (m6 & 0x08) && (m6 & 0x10)) << 7; // +X +Y -Z
+
+   return(m8);
+} // getBoundaryM8
+
+static uint getBoundaryM12 (const char m6)
+{
+   uint m12= 0;
+
+   m12|= ((m6 & 0x01) && (m6 & 0x04)) << 0; // -X -Y
+   m12|= ((m6 & 0x01) && (m6 & 0x08)) << 1; // -X +Y
+   m12|= ((m6 & 0x02) && (m6 & 0x04)) << 2; // +X -Y
+   m12|= ((m6 & 0x02) && (m6 & 0x08)) << 3; // +X +Y
+
+   m12|= ((m6 & 0x01) && (m6 & 0x10)) << 0; // -X -Z
+   m12|= ((m6 & 0x01) && (m6 & 0x20)) << 1; // -X +Z
+   m12|= ((m6 & 0x02) && (m6 & 0x10)) << 2; // +X -Z
+   m12|= ((m6 & 0x02) && (m6 & 0x20)) << 3; // +X +Z
+
+   m12|= ((m6 & 0x04) && (m6 & 0x10)) << 0; // -Y -Z
+   m12|= ((m6 & 0x08) && (m6 & 0x10)) << 1; // -Y +Z
+   m12|= ((m6 & 0x04) && (m6 & 0x20)) << 2; // +Y -Z
+   m12|= ((m6 & 0x08) && (m6 & 0x20)) << 3; // +Y +Z
+   return(m12);
+} // getBoundaryM12
+
+static uint getMapElem (Index x, Index y, Index z, const MMV3I *pMM)
+{
+   const char m6= getBoundaryM6(x, y, z, pMM);
+   return( m6 | (getBoundaryM8(m6) << 6) );
 } // getMapElem
 
-size_t setDefaultMap (D3S6MapElem *pM, const V3I *pD)
+static uint getMapElemV (Index x, Index y, Index z, const MMV3I *pMM)
+{
+   const uint m6= getBoundaryM6(x, y, z, pMM);
+   const uint m8= getBoundaryM8(m6);
+   printf("getMapElemV() - m6=0x%x, m8=0x%x (0x%x)\n", m6, m8, ((m6 & 0x02) && (m6 & 0x08) && (m6 & 0x10)) << 7);
+   return(m6 | (m8 << 6) );
+} // getMapElemV
+
+size_t setDefaultMap (TestMapElem *pM, const V3I *pD)
 {
    const size_t nP= pD->x * pD->y;
    const size_t nV= nP * pD->z;
    const Stride s[2]= {pD->x,nP};
-   const V3I md= { pD->x-1, pD->y-1, pD->z-1 };
+   const MMV3I mm= { 0, 0, 0, pD->x-1, pD->y-1, pD->z-1 };
    Index x, y, z;
-   const D3S6MapElem me= getMapElem(1,1,1,&md);
+   const TestMapElem me= getMapElemV(pD->x/2, pD->y/2, pD->z/2, &mm);
 
    for (z=1; z < pD->z-1; z++)
    {
@@ -86,8 +167,8 @@ size_t setDefaultMap (D3S6MapElem *pM, const V3I *pD)
    {
       for (x=0; x < pD->x; x++)
       {
-         pM[x + y * s[0] + 0 * s[1]]= getMapElem(x,y,0,&md);
-         pM[x + y * s[0] + z * s[1]]= getMapElem(x,y,z,&md);
+         pM[x + y * s[0] + 0 * s[1]]= getMapElem(x,y,0,&mm);
+         pM[x + y * s[0] + z * s[1]]= getMapElem(x,y,z,&mm);
       }
    }
    for (z=0; z < pD->z; z++)
@@ -95,14 +176,14 @@ size_t setDefaultMap (D3S6MapElem *pM, const V3I *pD)
       y= pD->y-1;
       for (x=0; x < pD->x; x++)
       {
-         pM[x + 0 * s[0] + z * s[1]]= getMapElem(x,0,z,&md);
-         pM[x + y * s[0] + z * s[1]]= getMapElem(x,y,z,&md);
+         pM[x + 0 * s[0] + z * s[1]]= getMapElem(x,0,z,&mm);
+         pM[x + y * s[0] + z * s[1]]= getMapElem(x,y,z,&mm);
       }
       x= pD->x-1;
       for (y=0; y < pD->y; y++)
       {
-         pM[0 + y * s[0] + z * s[1]]= getMapElem(0,y,z,&md);
-         pM[x + y * s[0] + z * s[1]]= getMapElem(x,y,z,&md);
+         pM[0 + y * s[0] + z * s[1]]= getMapElem(0,y,z,&mm);
+         pM[x + y * s[0] + z * s[1]]= getMapElem(x,y,z,&mm);
       }
    }
 #if 1
@@ -265,9 +346,12 @@ DiffScalar sumField (const DiffScalar * pS, const int phase, const DiffOrg *pO) 
    return(0);
 } // size_t
 
-DiffScalar diffStrideNS (DiffScalar * pR, const DiffScalar * pS1, const DiffScalar * pS2, const size_t n, const Stride sr12)
+SMVal diffStrideNS (DiffScalar * pR, const DiffScalar * pS1, const DiffScalar * pS2, const size_t n, const Stride sr12)
 {
-   DiffScalar mom[3]= {0,0,0}, sad=0; //, as[2]={0,0};
+   StatMom  mom={0,0,0};
+   StatRes1 sr={0,0};
+   SMVal    sad=0;
+
    if (pR)
    {
       for (size_t i=0; i<n; i++)
@@ -278,9 +362,9 @@ DiffScalar diffStrideNS (DiffScalar * pR, const DiffScalar * pS1, const DiffScal
          sad+= fabs(d);
          if (0 != s)
          {
-            mom[0]+= 1;
-            mom[1]+= d;
-            mom[2]+= d * d;
+            mom.m[0]+= 1;
+            mom.m[1]+= d;
+            mom.m[2]+= d * d;
          }
       }
    }
@@ -293,46 +377,49 @@ DiffScalar diffStrideNS (DiffScalar * pR, const DiffScalar * pS1, const DiffScal
          sad+= fabs(d);
          if (0 != s)
          {
-            mom[0]+= 1;
-            mom[1]+= d;
-            mom[2]+= d * d;
+            mom.m[0]+= 1;
+            mom.m[1]+= d;
+            mom.m[2]+= d * d;
          }
       }
    }
-   if (mom[0] > 1)
+   
+   if (statGetRes1(&sr, &mom, 1))
    {
-      DiffScalar mean= mom[1] / mom[0];
-      DiffScalar var= ( mom[2] - (mom[1] * mean) ) / (mom[0] - 1);
-      printf("diffStrideNS() - n,sum,sumSqr,mean,var= %G, %G, %G, %G, %G\n", mom[0], mom[1], mom[2], mean, var);
+      printf("diffStrideNS() - n,sum,sumSqr,mean,var= %G, %G, %G, %G, %G\n", mom.m[0], mom.m[1], mom.m[2], sr.m, sr.v);
    }
    return(sad);
 } // diffStrideNS
 
-DiffScalar relDiffStrideNS (DiffScalar * pR, const DiffScalar * pS1, const DiffScalar * pS2, const size_t n, const Stride sr12)
+SMVal relDiffStrideNS (DiffScalar * pR, const DiffScalar * pS1, const DiffScalar * pS2, const size_t n, const Stride sr12)
 {
-   DiffScalar mom[3]= {0,0,0};
+   StatMom  mom={0,0,0};
+   StatRes1 sr={0,0};
+   SMVal    sad=0;
+
    for (size_t i=0; i<n; i++)
    {
-      //DiffScalar s= pS1[i * sr12] + pS2[i * sr12]; 
+      DiffScalar s1= pS1[i * sr12]; 
       DiffScalar s2= pS2[i * sr12]; 
+      DiffScalar s= s1 + s2; 
+      DiffScalar d= s1 - s2; 
       DiffScalar rd= 0;
-      if (0 != s2)
+      sad+= fabs(d);
+      if (0 != s)
       {
          rd= (pS1[i * sr12] - s2) / s2;
-         mom[0]+= 1;
-         mom[1]+= rd;
-         mom[2]+= rd * rd;
+         mom.m[0]+= 1;
+         mom.m[1]+= d;
+         mom.m[2]+= d * d;
       }
       pR[i]= rd;
    }
-   if (mom[0] > 1)
+   if (statGetRes1(&sr, &mom, 1))
    {
-      DiffScalar mean= mom[1] / mom[0];
-      DiffScalar var= ( mom[2] - (mom[1] * mean) ) / (mom[0] - 1);
-      printf("relDiffStrideNS() - n,sum,mean,var= %G, %G, %G, %G\n", mom[0], mom[1], mean, var);
+      printf("diffStrideNS() - n,sum,sumSqr,mean,var= %G, %G, %G, %G, %G\n", mom.m[0], mom.m[1], mom.m[2], sr.m, sr.v);
    }
-   return(mom[1]);
-} // diffStrideNS
+   return(sad);
+} // relDiffStrideNS
 
 
 DiffScalar searchMin1 (const DiffScalar *pS, const DiffOrg *pO, const DiffScalar ma, const DiffScalar Dt0, const DiffScalar Dt1)

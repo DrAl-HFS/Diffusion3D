@@ -29,13 +29,32 @@ typedef struct
    size_t   n1F,n1B; // number elements in single field (phase) and single buffer (all phases)
 } DiffOrg;
 
-typedef unsigned char D3S6MapElem; // Flags describing local structure
+// Flags describing local structure
+typedef unsigned char D3S6MapElem;
+typedef unsigned short D3S14MapElem;
+typedef unsigned int D3S18MapElem;
+typedef unsigned int D3S26MapElem;
 
 // Isotropic weights
 typedef struct
 {
-   DiffScalar w[2]; // centre, neighbour
+   DiffScalar w[2]; // For lattice distances 0, 1 (centre, face-neighbour)
 } D3S6IsoWeights;
+
+typedef struct
+{
+   DiffScalar w[3]; // For lattice distances 0, 1, sqrt(3) (centre, face-neighbour, vertex-neighbour)
+} D3S14IsoWeights;
+
+typedef struct
+{
+   DiffScalar w[3]; // For lattice distances 0, 1, sqrt(2) (centre, face-neighbour, edge-neighbour)
+} D3S18IsoWeights;
+
+typedef struct
+{
+   DiffScalar w[4]; // For lattice distances 0, 1, sqrt(2), sqrt(3) (centre, face, edge and vertex neighbours)
+} D3S26IsoWeights;
 
 
 /***/
@@ -49,6 +68,16 @@ extern uint diffProcIsoD3S6M
    const D3S6IsoWeights * pW, // [pO->nPhase]
    const D3S6MapElem *pM,     // map (corresponding to scalar fields) describing structure
    const uint  nI   // iterations
+);
+
+extern uint diffProcIsoD3S14M
+(
+   DiffScalar * restrict pR,  // Result field(s)
+   DiffScalar * restrict pS, // Source field(s)
+   const DiffOrg        * pO, // descriptor
+   const D3S14IsoWeights * pW,
+   const D3S14MapElem    * pM,
+   const uint nI
 );
 
 #endif // DIFF_3D_H

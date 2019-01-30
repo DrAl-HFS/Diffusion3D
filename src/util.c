@@ -7,6 +7,18 @@
 #define GETTIME(a) gettimeofday(a,NULL)
 #define USEC(t1,t2) (((t2).tv_sec-(t1).tv_sec)*1000000+((t2).tv_usec-(t1).tv_usec))
 
+/***/
+
+Bool32 validBuff (const MemBuff *pB, size_t b)
+{
+   return(pB && pB->p && (pB->bytes >= b));
+} // validBuff
+
+void releaseMemBuff (MemBuff *pB)
+{
+   if (pB && pB->p) { free(pB->p); pB->p= NULL; }
+} // releaseMemBuff
+
 const char *stripPath (const char *path)
 {
    if (path && *path)
@@ -25,16 +37,6 @@ const char *stripPath (const char *path)
 } // stripPath
 
 // const char *extractPath (char s[], int m, const char *pfe) {} // extractPath
-
-Bool32 validBuff (const MemBuff *pB, size_t b)
-{
-   return(pB && pB->p && (pB->bytes >= b));
-} // validBuff
-
-void releaseMemBuff (MemBuff *pB)
-{
-   if (pB && pB->p) { free(pB->p); pB->p= NULL; }
-} // releaseMemBuff
 
 size_t fileSize (const char * const path)
 {
@@ -81,6 +83,25 @@ SMVal deltaT (void)
    i^= 1;
    return(dt);
 } // deltaT
+
+U32 statGetRes1 (StatRes1 * const pR, const StatMom * const pS, const SMVal dof)
+{
+   StatRes1 r={ 0, 0 };
+   U32 o= 0;
+   if (pS && (pS->m[0] > 0))
+   {
+      r.m= pS->m[1] / pS->m[0];
+      ++o;
+      if (pS->m[0] != dof)
+      { 
+         //SMVal ess= (pS->m[1] * pS->m[1]) / pS->m[0];
+         r.v= ( pS->m[2] - (pS->m[1] * r.m) ) / (pS->m[0] - dof);
+         ++o;
+      }
+   }
+   if (pR) { *pR= r; }
+   return(o);
+} // statGetRes1
 
 
 #ifdef UTIL_TEST

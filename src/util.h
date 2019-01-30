@@ -48,7 +48,7 @@ typedef double F64;
 
 
 typedef int Bool32;
-typedef double SMVal; // Stat measure value - use widest available IEEE type
+typedef double SMVal; // Stat measure value - use widest available IEEE type supported by hardware
 typedef struct
 {
    SMVal    m[3];
@@ -78,5 +78,7 @@ extern size_t loadBuff (void * const pB, const char * const path, const size_t b
 extern size_t saveBuff (const void * const pB, const char * const path, const size_t bytes);
 
 extern SMVal deltaT (void);
+
+extern U32 statGetRes1 (StatRes1 * const pR, const StatMom * const pS, const SMVal dof);
 
 #endif // UTIL_H

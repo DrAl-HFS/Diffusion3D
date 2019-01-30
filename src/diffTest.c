@@ -8,8 +8,8 @@ typedef struct
 {
    DiffOrg        org;
    DiffScalar     *pSR[2];
-   D3S6IsoWeights w[1];
-   D3S6MapElem    *pM;
+   D3S26IsoWeights wPhase[1];
+   TestMapElem    *pM;
    MemBuff        ws;
 } DiffTestContext;
 
@@ -43,7 +43,6 @@ Bool32 init (DiffTestContext *pC, uint def)
       size_t b1B= pC->org.n1B * sizeof(*(pC->pSR));
       uint nB= 0;
 
-      initW(pC->w, 0.5);
       pC->pM= malloc(b1M);
       if (pC->pM)
       {
@@ -72,6 +71,7 @@ void release (DiffTestContext *pC)
 
 int main (int argc, char *argv[])
 {
+   SMVal dT;
    uint iT=0, iN= 0, iA= 0;
    int r= 0;
    if (init(&gCtx,1<<8))
@@ -80,9 +80,15 @@ int main (int argc, char *argv[])
       const Index zSlice= gCtx.org.def.z / 2;
 
       defFields(gCtx.pSR[0], &(gCtx.org), m);
+      //initW(gCtx.wPhase[0].w, 0.5, 6, 0);
+      initW(gCtx.wPhase[0].w, 0.5, 14, 0);
 
+      deltaT();
       //pragma acc set device_type(acc_device_none)
-      iT+= diffProcIsoD3S6M(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), gCtx.w, gCtx.pM, 100);
+      //iT= diffProcIsoD3S6M(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), (D3S6IsoWeights*)(gCtx.wPhase), gCtx.pM, 100);
+      iT= diffProcIsoD3S14M(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), (D3S14IsoWeights*)(gCtx.wPhase), gCtx.pM, 100);
+      dT= deltaT();
+      printf("diffProcIsoD3S6M() %u iter %G sec (%G msec/iter)\n", iT, dT, 1000*dT / iT);
       iN= iT & 1;
       saveSliceRGB("rgb/numerical.rgb", gCtx.pSR[iN], 0, zSlice, &(gCtx.org));
       iA= iN^1;
