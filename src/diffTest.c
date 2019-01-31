@@ -8,8 +8,8 @@ typedef struct
 {
    DiffOrg        org;
    DiffScalar     *pSR[2];
-   D3S26IsoWeights wPhase[1];
-   TestMapElem    *pM;
+   D3IsoWeights   wPhase[1];
+   D3MapElem      *pM;
    MemBuff        ws;
 } DiffTestContext;
 
@@ -68,6 +68,41 @@ void release (DiffTestContext *pC)
    for (int i= 0; i<2; i++) { if (pC->pSR[i]) { free(pC->pSR[i]); pC->pSR[i]= NULL; } }
 } // release
 
+typedef struct
+{
+   const char *fs, *eol[2];
+} FmtDesc;
+
+int dumpRegion (char *pCh, int maxCh, const DiffScalar * pS, const MMV3I *pRegion, const DiffOrg *pO)
+{
+   FmtDesc fd={"%G ","\n","\n"};
+   int nCh= 0;
+   for (Index z= pRegion->min.z; z <= pRegion->max.z; z++)
+   {
+      for (Index y= pRegion->min.y; y <= pRegion->max.y; y++)
+      {
+         for (Index x= pRegion->min.x; x <= pRegion->max.x; x++)
+         {
+            const size_t i= x * pO->stride[0] + y * pO->stride[1] + z * pO->stride[2];
+            nCh+= snprintf(pCh+nCh, maxCh-nCh, fd.fs, pS[i]);
+         }
+         nCh+= snprintf(pCh+nCh, maxCh-nCh, fd.eol[0]);
+      }
+      nCh+= snprintf(pCh+nCh, maxCh-nCh, fd.eol[1]);
+   }
+   return(nCh);
+} // dumpRegion
+
+void dump (const DiffScalar * pS)
+{
+   const V3I c= {gCtx.org.def.x/2, gCtx.org.def.y/2, gCtx.org.def.z/2};
+   const MMV3I mm= {c.x-1,c.y-1,c.z-1, c.x+1,c.y+1,c.z+1};
+   char buff[1<<12];
+   if (dumpRegion(buff, sizeof(buff)-1, pS, &mm, &(gCtx.org)))
+   {
+      printf("%s", buff);
+   }
+} // dump
 
 int main (int argc, char *argv[])
 {
@@ -81,27 +116,34 @@ int main (int argc, char *argv[])
 
       defFields(gCtx.pSR[0], &(gCtx.org), m);
       //initW(gCtx.wPhase[0].w, 0.5, 6, 0);
-      initW(gCtx.wPhase[0].w, 0.5, 14, 0);
+      initW(gCtx.wPhase[0].w, 0.5, 26, 0);
+
+      //test(&(gCtx.org));
 
       deltaT();
       //pragma acc set device_type(acc_device_none)
       //iT= diffProcIsoD3S6M(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), (D3S6IsoWeights*)(gCtx.wPhase), gCtx.pM, 100);
-      iT= diffProcIsoD3S14M(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), (D3S14IsoWeights*)(gCtx.wPhase), gCtx.pM, 100);
+      iT= diffProcIsoD3S26M(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), gCtx.wPhase, gCtx.pM, 100);
       dT= deltaT();
-      printf("diffProcIsoD3S6M() %u iter %G sec (%G msec/iter)\n", iT, dT, 1000*dT / iT);
       iN= iT & 1;
+      DiffScalar s= sumField(gCtx.pSR[iN], 0, &(gCtx.org));
+      printf("diffProcIso... %u iter %G sec (%G msec/iter) sum=%G\n", iT, dT, 1000*dT / iT, s);
+
+      //dump(gCtx.pSR[iN]);
+
       saveSliceRGB("rgb/numerical.rgb", gCtx.pSR[iN], 0, zSlice, &(gCtx.org));
       iA= iN^1;
-
+#if 1
       // Search for Diffusion-time moment
-      DiffScalar Dt= searchMin1(gCtx.pSR[iN], &(gCtx.org), m, 7.95, 8.25); // 8.18516
+      DiffScalar Dt= sqrt(iT);
+      Dt= searchMin1(gCtx.pSR[iN], &(gCtx.org), m, Dt); // 8.18516
       //Newtons method performs relatively poorly - due to discontinuity?
-      //DiffScalar Dt= searchNewton(gCtx.pSR[iN], &(gCtx.org), m, 7.95, 8.25);
+      //Dt= searchNewton(gCtx.pSR[iN], &(gCtx.org), m, Dt);
 
       initPhaseAnalytic(gCtx.pSR[iA], &(gCtx.org), 0, m, Dt);
       saveSliceRGB("rgb/analytic.rgb", gCtx.pSR[iA], 0, zSlice, &(gCtx.org));
-
       analyse(gCtx.pSR[iA], gCtx.pSR[iN], 0, &(gCtx.org));
+#endif
    }
    release(&gCtx);
    printf("Complete\n");

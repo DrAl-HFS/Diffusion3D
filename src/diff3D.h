@@ -30,36 +30,32 @@ typedef struct
 } DiffOrg;
 
 // Flags describing local structure
-typedef unsigned char D3S6MapElem;
-typedef unsigned short D3S14MapElem;
-typedef unsigned int D3S18MapElem;
-typedef unsigned int D3S26MapElem;
+typedef unsigned char D3S6MapElem, D3S8MapElem;
+typedef ushort D3S14MapElem;
+typedef uint D3MapElem;
 
 // Isotropic weights
 typedef struct
 {
-   DiffScalar w[2]; // For lattice distances 0, 1 (centre, face-neighbour)
-} D3S6IsoWeights;
+   DiffScalar w[2]; // For lattice distances 0, 1 OR sqrt(2) OR sqrt(3) (centre, face-neighbour OR edge-neighbour OR vertex-neighbour)
+} D3S6IsoWeights, D3S8IsoWeights, D3S12IsoWeights;
 
 typedef struct
 {
-   DiffScalar w[3]; // For lattice distances 0, 1, sqrt(3) (centre, face-neighbour, vertex-neighbour)
-} D3S14IsoWeights;
-
-typedef struct
-{
-   DiffScalar w[3]; // For lattice distances 0, 1, sqrt(2) (centre, face-neighbour, edge-neighbour)
-} D3S18IsoWeights;
+   DiffScalar w[3]; // For lattice distances 0, 1, sqrt(2) OR sqrt(3) (centre, face-neighbour, edge-neighbour OR vertex-neighbour)
+} D3S14IsoWeights, D3S18IsoWeights, D3S20IsoWeights;
 
 typedef struct
 {
    DiffScalar w[4]; // For lattice distances 0, 1, sqrt(2), sqrt(3) (centre, face, edge and vertex neighbours)
-} D3S26IsoWeights;
+} D3IsoWeights;
 
 
 /***/
 
-// Isotropic 3D 6-point/2-weight stencil "3D Von-Neumann neighbourhood"
+// Isotropic 3D diffusion functions:
+
+// 6-point/2-weight stencil "3D Von-Neumann neighbourhood"
 extern uint diffProcIsoD3S6M 
 (
    DiffScalar * restrict pR,  // Result field(s)
@@ -70,14 +66,28 @@ extern uint diffProcIsoD3S6M
    const uint  nI   // iterations
 );
 
-extern uint diffProcIsoD3S14M
+// 18-point/3-weight stencil
+extern uint diffProcIsoD3S18M
 (
    DiffScalar * restrict pR,  // Result field(s)
    DiffScalar * restrict pS, // Source field(s)
    const DiffOrg        * pO, // descriptor
-   const D3S14IsoWeights * pW,
-   const D3S14MapElem    * pM,
+   const D3IsoWeights * pW,
+   const D3MapElem    * pM,
    const uint nI
 );
+
+// 26-point/4-weight stencil "3D Moore neighbourhood"
+extern uint diffProcIsoD3S26M
+(
+   DiffScalar * restrict pR,  // Result field(s)
+   DiffScalar * restrict pS, // Source field(s)
+   const DiffOrg        * pO, // descriptor
+   const D3IsoWeights * pW,
+   const D3MapElem    * pM,
+   const uint nI
+);
+
+extern void test (const DiffOrg * pO);
 
 #endif // DIFF_3D_H

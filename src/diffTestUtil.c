@@ -8,7 +8,6 @@ typedef struct { DiffScalar x, y; } SearchPoint;
 
 const float gEpsilon= 1.0 / (1<<30);
 
-typedef struct { V3I min, max; } MMV3I;
 
 /***/
 
@@ -45,6 +44,8 @@ Bool32 initOrg (DiffOrg *pO, uint def, uint nP)
 
 void initW (DiffScalar w[], DiffScalar r, uint nHood, uint qBits)
 {
+   uint n[3]= {6,0,0};
+   w[2]= w[3]= 0;
    if ((6 == nHood) && (qBits > 3))
    {
       const uint q= 1<<qBits;
@@ -57,22 +58,26 @@ void initW (DiffScalar w[], DiffScalar r, uint nHood, uint qBits)
       {
          case 6 : w[1]= r / 6; break;
          case 14 :   // 6 + 8/3 = 26/3
+            n[1]= 8;
             w[1]= (r * 3) / 26; // 6 * 3/26 = 18/26
             w[2]= r / 26;       // 8 * 1/26 = 8/26
             break;                        // 26/26
          case 18 :   // 6 + 12/2 = 24/2
+            n[1]= 12;
             w[1]= (r * 2) / 24;  // 6 * 2/24  = 12/24
             w[2]= r / 24;        // 12 * 1/24 = 12/24
             break;                         // 24/24
          case 26 :   // 6 + 12/2 + 8/3 = (36+36+16)/6 = 88/6
+            n[1]= 12;
+            n[2]= 8;
             w[1]= (r * 6) / 88;  // 6 * 6/88  = 36/88
             w[2]= (r * 3) / 88;  // 12 * 3/88 = 36/88
             w[3]= (r * 2) / 88;  // 8 * 2/88  = 16/88
             break;                         // 88/88
       }
    }
-   w[0]= 1 - 6 * w[1] ;
-   printf("initW() - w[]=%G,%G\n", w[0], w[1]);
+   w[0]= 1 - (n[0] * w[1] + n[1] * w[2] + n[2] * w[3]);
+   printf("initW() - w[]= %G, %G, %G, %G\n", w[0], w[1], w[2], w[3]);
 } // initW
 
 static uint getBoundaryM6 (Index x, Index y, Index z, const MMV3I *pMM)
@@ -91,7 +96,7 @@ static uint getBoundaryM6 (Index x, Index y, Index z, const MMV3I *pMM)
    return(m6);
 } // getBoundaryM6
 
-static uint getBoundaryM8 (const char m6)
+static uint getBoundaryM8 (const uint m6)
 {
    uint m8= 0;
 
@@ -108,7 +113,7 @@ static uint getBoundaryM8 (const char m6)
    return(m8);
 } // getBoundaryM8
 
-static uint getBoundaryM12 (const char m6)
+static uint getBoundaryM12 (const uint m6)
 {
    uint m12= 0;
 
@@ -117,40 +122,42 @@ static uint getBoundaryM12 (const char m6)
    m12|= ((m6 & 0x02) && (m6 & 0x04)) << 2; // +X -Y
    m12|= ((m6 & 0x02) && (m6 & 0x08)) << 3; // +X +Y
 
-   m12|= ((m6 & 0x01) && (m6 & 0x10)) << 0; // -X -Z
-   m12|= ((m6 & 0x01) && (m6 & 0x20)) << 1; // -X +Z
-   m12|= ((m6 & 0x02) && (m6 & 0x10)) << 2; // +X -Z
-   m12|= ((m6 & 0x02) && (m6 & 0x20)) << 3; // +X +Z
+   m12|= ((m6 & 0x01) && (m6 & 0x10)) << 4; // -X -Z
+   m12|= ((m6 & 0x01) && (m6 & 0x20)) << 5; // -X +Z
+   m12|= ((m6 & 0x02) && (m6 & 0x10)) << 6; // +X -Z
+   m12|= ((m6 & 0x02) && (m6 & 0x20)) << 7; // +X +Z
 
-   m12|= ((m6 & 0x04) && (m6 & 0x10)) << 0; // -Y -Z
-   m12|= ((m6 & 0x08) && (m6 & 0x10)) << 1; // -Y +Z
-   m12|= ((m6 & 0x04) && (m6 & 0x20)) << 2; // +Y -Z
-   m12|= ((m6 & 0x08) && (m6 & 0x20)) << 3; // +Y +Z
+   m12|= ((uint)((m6 & 0x04) && (m6 & 0x10))) << 8; // -Y -Z
+   m12|= ((uint)((m6 & 0x04) && (m6 & 0x20))) << 9; // -Y +Z
+   m12|= ((uint)((m6 & 0x08) && (m6 & 0x10))) << 10; // +Y -Z
+   m12|= ((uint)((m6 & 0x08) && (m6 & 0x20))) << 11; // +Y +Z
+
    return(m12);
 } // getBoundaryM12
 
 static uint getMapElem (Index x, Index y, Index z, const MMV3I *pMM)
 {
-   const char m6= getBoundaryM6(x, y, z, pMM);
-   return( m6 | (getBoundaryM8(m6) << 6) );
+   const uint m6= getBoundaryM6(x, y, z, pMM);
+   return( m6 | (getBoundaryM12(m6) << 6) );
 } // getMapElem
 
 static uint getMapElemV (Index x, Index y, Index z, const MMV3I *pMM)
 {
    const uint m6= getBoundaryM6(x, y, z, pMM);
+   const uint m12= getBoundaryM12(m6);
    const uint m8= getBoundaryM8(m6);
-   printf("getMapElemV() - m6=0x%x, m8=0x%x (0x%x)\n", m6, m8, ((m6 & 0x02) && (m6 & 0x08) && (m6 & 0x10)) << 7);
-   return(m6 | (m8 << 6) );
+   printf("getMapElemV() - m6=0x%x, m12=0x%x, m8=0x%x\n", m6, m12, m8);
+   return(m6 | (m12 << 6) );
 } // getMapElemV
 
-size_t setDefaultMap (TestMapElem *pM, const V3I *pD)
+size_t setDefaultMap (D3MapElem *pM, const V3I *pD)
 {
    const size_t nP= pD->x * pD->y;
    const size_t nV= nP * pD->z;
    const Stride s[2]= {pD->x,nP};
    const MMV3I mm= { 0, 0, 0, pD->x-1, pD->y-1, pD->z-1 };
    Index x, y, z;
-   const TestMapElem me= getMapElemV(pD->x/2, pD->y/2, pD->z/2, &mm);
+   const D3MapElem me= getMapElemV(pD->x/2, pD->y/2, pD->z/2, &mm);
 
    for (z=1; z < pD->z-1; z++)
    {
@@ -422,40 +429,49 @@ SMVal relDiffStrideNS (DiffScalar * pR, const DiffScalar * pS1, const DiffScalar
 } // relDiffStrideNS
 
 
-DiffScalar searchMin1 (const DiffScalar *pS, const DiffOrg *pO, const DiffScalar ma, const DiffScalar Dt0, const DiffScalar Dt1)
+DiffScalar searchMin1 (const DiffScalar *pS, const DiffOrg *pO, const DiffScalar ma, const DiffScalar Dt)
 {
    SearchPoint p, min[2];
-   int r;
+   int r=2;
 
-   min[0].x= Dt0;
+   //p.y=  compareAnalytic(pS, pO, ma, Dt);
+   min[0].x= 0.5 * Dt;
    min[0].y= compareAnalytic(pS, pO, ma, min[0].x);
-   min[1].x= Dt1;
+   min[1].x= 1.5 * Dt;
    min[1].y= compareAnalytic(pS, pO, ma, min[1].x);
+   if (min[1].y < min[0].y) { SWAP(SearchPoint, min[0], min[1]); }
    printf("searchMin1() -\n? %G %G\n? %G %G\n", min[0].x, min[0].y, min[1].x, min[1].y);
 
-   if (min[1].y < min[0].y) { SWAP(SearchPoint, min[0], min[1]); }
    do
    {
-      r= 0;
       p.x= 0.5 * (min[0].x + min[1].x);
       p.y= compareAnalytic(pS, pO, ma, p.x);
       printf("? %G %G\n", p.x, p.y);
-      if (p.y < min[0].y) { min[1]= min[0]; min[0]= p; r++; }
-      else if (p.y < min[1].y) { min[1]= p; r++; }
-   } while ((r > 0) && ((min[1].y - min[0].y) > gEpsilon));
+      if (p.y < min[0].y)
+      {
+         r+= p.y < (min[0].y - gEpsilon);
+         min[1]= min[0];
+         min[0]= p;
+      }
+      else if (p.y < min[1].y)
+      {
+         r+= p.y < (min[1].y - gEpsilon);
+         min[1]= p;
+      }
+   } while ((--r > 0) && ((min[1].y - min[0].y) > gEpsilon));
 
    printf(": %G %G\n", min[0].x, min[0].y);
    return(min[0].x);
 } // searchMin1
 
-DiffScalar searchNewton (const DiffScalar *pS, const DiffOrg *pO, const DiffScalar ma, const DiffScalar Dt0, const DiffScalar Dt1)
+DiffScalar searchNewton (const DiffScalar *pS, const DiffOrg *pO, const DiffScalar ma, const DiffScalar estDt)
 {
    SearchPoint min={0,1E34};
-   DiffScalar x, y[3], dy, hW= 0.0625 * (Dt1 - Dt0);
+   DiffScalar x, y[3], dy, hW= 0.0625 * estDt;
    const int iMax= 10;
    int i= 0, r= 0, m= 0;
 
-   x= Dt0;//0.5 * (Dt1 + Dt0);
+   x= estDt;
    do
    {
       DiffScalar tx= x - hW;
