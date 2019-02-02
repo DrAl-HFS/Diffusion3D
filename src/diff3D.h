@@ -9,8 +9,6 @@
 
 
 #define DIFF_DIM (3)
-#define DIFF_DIR (DIFF_DIM*2)
-//define DIFF_W (2)
 
 typedef double DiffScalar;
 
@@ -24,9 +22,9 @@ typedef struct
 {
    V3I      def;
    int      nPhase;
-   Stride   stride[DIFF_DIM], step[DIFF_DIR];
+   Stride   stride[DIFF_DIM], step[6];
    size_t   phaseStride;
-   size_t   n1F,n1B; // number elements in single field (phase) and single buffer (all phases)
+   size_t   n1P,n1F,n1B; // number elements in single plane, field (phase) and single buffer (all phases)
 } DiffOrg;
 
 // Flags describing local structure

@@ -41,6 +41,7 @@ Bool32 init (DiffTestContext *pC, uint def)
    {
       size_t b1M= pC->org.n1F * sizeof(*(pC->pM));
       size_t b1B= pC->org.n1B * sizeof(*(pC->pSR));
+      size_t b1W= pC->org.n1F * sizeof(*(pC->pSR));
       uint nB= 0;
 
       pC->pM= malloc(b1M);
@@ -49,7 +50,7 @@ Bool32 init (DiffTestContext *pC, uint def)
          printf("pM: %p, %zuB, bndsum=%zu\n", pC->pM, b1M, setDefaultMap(pC->pM, &(pC->org.def)) );
          nB++;
       }
-      pC->ws.bytes=  1<<28;
+      pC->ws.bytes=  b1W; // 1<<28; ???
       pC->ws.p=  malloc(pC->ws.bytes);
       if (nB > 0)
       {
@@ -116,14 +117,14 @@ int main (int argc, char *argv[])
 
       defFields(gCtx.pSR[0], &(gCtx.org), m);
       //initW(gCtx.wPhase[0].w, 0.5, 6, 0);
-      initW(gCtx.wPhase[0].w, 0.5, 26, 0);
+      initW(gCtx.wPhase[0].w, 0.5, 18, 0);
 
       //test(&(gCtx.org));
 
       deltaT();
       //pragma acc set device_type(acc_device_none)
       //iT= diffProcIsoD3S6M(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), (D3S6IsoWeights*)(gCtx.wPhase), gCtx.pM, 100);
-      iT= diffProcIsoD3S26M(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), gCtx.wPhase, gCtx.pM, 100);
+      iT= diffProcIsoD3S18M(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), gCtx.wPhase, gCtx.pM, 10);
       dT= deltaT();
       iN= iT & 1;
       DiffScalar s= sumField(gCtx.pSR[iN], 0, &(gCtx.org));
@@ -136,9 +137,9 @@ int main (int argc, char *argv[])
 #if 1
       // Search for Diffusion-time moment
       DiffScalar Dt= sqrt(iT);
-      Dt= searchMin1(gCtx.pSR[iN], &(gCtx.org), m, Dt); // 8.18516
+      Dt= searchMin1(&(gCtx.ws), gCtx.pSR[iN], &(gCtx.org), m, Dt); // 8.18516
       //Newtons method performs relatively poorly - due to discontinuity?
-      //Dt= searchNewton(gCtx.pSR[iN], &(gCtx.org), m, Dt);
+      //Dt= searchNewton(&(gCtx.ws), gCtx.pSR[iN], &(gCtx.org), m, Dt);
 
       initPhaseAnalytic(gCtx.pSR[iA], &(gCtx.org), 0, m, Dt);
       saveSliceRGB("rgb/analytic.rgb", gCtx.pSR[iA], 0, zSlice, &(gCtx.org));

@@ -80,7 +80,7 @@ INLINE void setS26M (Stride s26m[], const Stride step[], const uint m)
 INLINE DiffScalar diffuseD3S6M
 (
    const DiffScalar * pS, 
-   const Stride     s6m[DIFF_DIR], 
+   const Stride     s6m[6], 
    const DiffScalar w[2]
 )
 {
