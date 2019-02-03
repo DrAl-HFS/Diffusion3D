@@ -43,10 +43,11 @@ Bool32 initOrg (DiffOrg *pO, uint def, uint nP)
    return(n > 0);
 } // initOrg
 
-void initW (DiffScalar w[], DiffScalar r, uint nHood, uint qBits)
+DiffScalar initW (DiffScalar w[], DiffScalar r, uint nHood, uint qBits)
 {
+   DiffScalar t= 0;
    uint n[3]= {6,0,0};
-   w[2]= w[3]= 0;
+   w[1]= w[2]= w[3]= 0;
    if ((6 == nHood) && (qBits > 3))
    {
       const uint q= 1<<qBits;
@@ -77,8 +78,10 @@ void initW (DiffScalar w[], DiffScalar r, uint nHood, uint qBits)
             break;                         // 88/88
       }
    }
-   w[0]= 1 - (n[0] * w[1] + n[1] * w[2] + n[2] * w[3]);
+   t= (n[0] * w[1] + n[1] * w[2] + n[2] * w[3]);
+   w[0]= 1 - t;
    printf("initW() - w[]= %G, %G, %G, %G\n", w[0], w[1], w[2], w[3]);
+   return(t);
 } // initW
 
 static uint getBoundaryM6 (Index x, Index y, Index z, const MMV3I *pMM)
@@ -471,7 +474,7 @@ DiffScalar searchMin1 (const MemBuff * pWS, const DiffScalar *pS, const DiffOrg 
       min[1].x= 1.5 * Dt;
       min[1].y= compareAnalyticP(pTR, pS, pO, ma, min[1].x);
       if (min[1].y < min[0].y) { SWAP(SearchPoint, min[0], min[1]); }
-      printf("searchMin1() -\n? %G %G\n? %G %G\n", min[0].x, min[0].y, min[1].x, min[1].y);
+      printf("searchMin1() -\n  Dt   SAD\n? %G %G\n? %G %G\n", min[0].x, min[0].y, min[1].x, min[1].y);
 
       do
       {

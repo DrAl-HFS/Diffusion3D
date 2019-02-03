@@ -12,6 +12,13 @@
 #define INLINE
 #endif
 
+typedef uint (*DiffProcIsoMapFuncPtr)
+(
+   DiffScalar * restrict, DiffScalar * restrict pS, 
+   const DiffOrg * pO, const D3IsoWeights * pW, const D3MapElem * pM
+);
+
+/***/
 
 INLINE void setS6M (Stride s6m[], const Stride step[], const uint m)
 {
@@ -141,20 +148,23 @@ INLINE DiffScalar diffuseD3S26M
 
 //---
 
+
+//---
+
 void procD3S6M
 (
    DiffScalar * restrict pR,  // Result field(s)
    const DiffScalar  * const pS, // Source field(s)
    const DiffOrg     * const pO, // description
-   const D3S6IsoWeights * const pW,
-   const D3S6MapElem    * const pM
+   const D3IsoWeights * const pW,
+   const D3MapElem    * const pM
 )
 {
    #pragma acc data present( pR[:pO->n1B], pS[:pO->n1B], pO[:1], pW[:pO->nPhase], pM[:pO->n1F] )
-   {
+   { // collapse(2) -> 20*slower!?
+      #pragma acc parallel loop
       for (Index z=0; z < pO->def.z; z++)
       {
-         #pragma acc parallel loop
          for (Index y=0; y < pO->def.y; y++)
          {
             #pragma acc loop vector
@@ -164,8 +174,7 @@ void procD3S6M
                if (0 != m)
                {
                   const size_t i= x * pO->stride[0] + y * pO->stride[1] + z * pO->stride[2];
-                  //pR[i]= diffuseD3S6M(pS+i, pO->step, pW->w); // s6m, pW->w); //
-                  Stride s6m[6];
+                  Stride s6m[18];
                   setS6M(s6m, pO->step, m);
                   for (int phase= 0; phase < pO->nPhase; phase++)
                   {
@@ -181,6 +190,45 @@ void procD3S6M
 
 //---
 
+void procD3S14M
+(
+   DiffScalar * restrict pR,  // Result field(s)
+   const DiffScalar  * const pS, // Source field(s)
+   const DiffOrg     * const pO, // description
+   const D3IsoWeights * const pW,
+   const D3MapElem    * const pM
+)
+{
+   #pragma acc data present( pR[:pO->n1B], pS[:pO->n1B], pO[:1], pW[:pO->nPhase], pM[:pO->n1F] )
+   {
+      #pragma acc parallel loop
+      for (Index z=0; z < pO->def.z; z++)
+      {
+         for (Index y=0; y < pO->def.y; y++)
+         {
+            #pragma acc loop vector
+            for (Index x=0; x < pO->def.x; x++)
+            {
+               const uint m= pM[x + pO->def.x * (y + (size_t) pO->def.y * z) ];
+               if (0 != m)
+               {
+                  const size_t i= x * pO->stride[0] + y * pO->stride[1] + z * pO->stride[2];
+                  Stride s14m[14];
+                  setS14M(s14m, pO->step, m);
+                  for (int phase= 0; phase < pO->nPhase; phase++)
+                  {
+                     size_t j= i + phase * pO->phaseStride;
+                     pR[j]= diffuseD3S14M(pS+j, s14m, pW[phase].w);
+                  }
+               }
+            }
+         }
+      }
+   }
+} // procD3S14M
+
+//---
+
 void procD3S18M
 (
    DiffScalar * restrict pR,  // Result field(s)
@@ -192,9 +240,9 @@ void procD3S18M
 {
    #pragma acc data present( pR[:pO->n1B], pS[:pO->n1B], pO[:1], pW[:pO->nPhase], pM[:pO->n1F] )
    {
+      #pragma acc parallel loop
       for (Index z=0; z < pO->def.z; z++)
       {
-         #pragma acc parallel loop
          for (Index y=0; y < pO->def.y; y++)
          {
             #pragma acc loop vector
@@ -231,9 +279,9 @@ void procD3S26M
 {
    #pragma acc data present( pR[:pO->n1B], pS[:pO->n1B], pO[:1], pW[:pO->nPhase], pM[:pO->n1F] )
    {
+      #pragma acc parallel loop
       for (Index z=0; z < pO->def.z; z++)
       {
-         #pragma acc parallel loop
          for (Index y=0; y < pO->def.y; y++)
          {
             #pragma acc loop vector
@@ -257,6 +305,45 @@ void procD3S26M
    }
 } // procD3S26M
 
+//---
+
+void procD3S6M8
+(
+   DiffScalar * restrict pR,  // Result field(s)
+   const DiffScalar  * const pS, // Source field(s)
+   const DiffOrg     * const pO, // description
+   const D3S6IsoWeights * const pW,
+   const D3S6MapElem    * const pM
+)
+{
+   #pragma acc data present( pR[:pO->n1B], pS[:pO->n1B], pO[:1], pW[:pO->nPhase], pM[:pO->n1F] )
+   {
+      for (Index z=0; z < pO->def.z; z++)
+      {
+         #pragma acc parallel loop
+         for (Index y=0; y < pO->def.y; y++)
+         {
+            #pragma acc loop vector
+            for (Index x=0; x < pO->def.x; x++)
+            {
+               const uint m= pM[x + pO->def.x * (y + (size_t) pO->def.y * z) ];
+               if (0 != m)
+               {
+                  const size_t i= x * pO->stride[0] + y * pO->stride[1] + z * pO->stride[2];
+                  //pR[i]= diffuseD3S6M(pS+i, pO->step, pW->w); // s6m, pW->w); //
+                  Stride s6m[6];
+                  setS6M(s6m, pO->step, m);
+                  for (int phase= 0; phase < pO->nPhase; phase++)
+                  {
+                     size_t j= i + phase * pO->phaseStride;
+                     pR[j]= diffuseD3S6M(pS+j, s6m, pW[phase].w);
+                  }
+               }
+            }
+         }
+      }
+   }
+} // procD3S6M8
 
 /***/
 
@@ -279,8 +366,8 @@ uint diffProcIsoD3S6M
          {
             for (i= 0; i < nI; i+=2 )
             {
-               procD3S6M(pR,pS,pO,pW,pM);
-               procD3S6M(pS,pR,pO,pW,pM);
+               procD3S6M8(pR,pS,pO,pW,pM);
+               procD3S6M8(pS,pR,pO,pW,pM);
             }
          }
       }
@@ -288,11 +375,11 @@ uint diffProcIsoD3S6M
       {
          #pragma acc data present_or_create( pR[:pO->n1B] ) copyin( pS[:pO->n1B] ) copyout( pR[:pO->n1B] )
          {
-            procD3S6M(pR,pS,pO,pW,pM);
+            procD3S6M8(pR,pS,pO,pW,pM);
             for (i= 1; i < nI; i+= 2 )
             {
-               procD3S6M(pS,pR,pO,pW,pM);
-               procD3S6M(pR,pS,pO,pW,pM);
+               procD3S6M8(pS,pR,pO,pW,pM);
+               procD3S6M8(pR,pS,pO,pW,pM);
             }
          }
       }
@@ -300,57 +387,29 @@ uint diffProcIsoD3S6M
    return(i);
 } // diffProcIsoD3S6M
 
-uint diffProcIsoD3S18M
+uint diffProcIsoD3SxM
 (
    DiffScalar * restrict pR,  // Result field(s)
    DiffScalar * restrict pS, // Source field(s)
    const DiffOrg        * pO, // descriptor
    const D3IsoWeights * pW,
    const D3MapElem    * pM,
-   const uint nI
+   const uint nI,
+   const uint nHood
 )
 {
-   uint i;
-   #pragma acc data present_or_copyin( pO[:1], pW[:pO->nPhase], pM[:pO->n1F] )
+   DiffProcIsoMapFuncPtr pF=NULL;
+   uint i= 0;
+   switch(nHood)
    {
-      if (0 == (nI & 1))
-      {
-         #pragma acc data present_or_create( pR[:pO->n1B] ) copy( pS[:pO->n1B] )
-         {
-            for (i= 0; i < nI; i+=2 )
-            {
-               procD3S18M(pR,pS,pO,pW,pM);
-               procD3S18M(pS,pR,pO,pW,pM);
-            }
-         }
-      }
-      else
-      {
-         #pragma acc data present_or_create( pR[:pO->n1B] ) copyin( pS[:pO->n1B] ) copyout( pR[:pO->n1B] )
-         {
-            procD3S18M(pR,pS,pO,pW,pM);
-            for (i= 1; i < nI; i+= 2 )
-            {
-               procD3S18M(pS,pR,pO,pW,pM);
-               procD3S18M(pR,pS,pO,pW,pM);
-            }
-         }
-      }
+      case 26 : pF= (DiffProcIsoMapFuncPtr)procD3S26M; break;
+      case 18 : pF= (DiffProcIsoMapFuncPtr)procD3S18M; break;
+      //case 14 : pF= (DiffProcIsoMapFuncPtr)procD3S14M; break; // UNDIAGNOSED BUG
+      case 6  : pF= (DiffProcIsoMapFuncPtr)procD3S6M; break;
    }
-   return(i);
-} // diffProcIsoD3S18M
 
-uint diffProcIsoD3S26M
-(
-   DiffScalar * restrict pR,  // Result field(s)
-   DiffScalar * restrict pS, // Source field(s)
-   const DiffOrg        * pO, // descriptor
-   const D3IsoWeights * pW,
-   const D3MapElem    * pM,
-   const uint nI
-)
-{
-   uint i;
+   
+   if (pF)
    #pragma acc data present_or_copyin( pO[:1], pW[:pO->nPhase], pM[:pO->n1F] )
    {
       if (0 == (nI & 1))
@@ -359,8 +418,8 @@ uint diffProcIsoD3S26M
          {
             for (i= 0; i < nI; i+=2 )
             {
-               procD3S26M(pR,pS,pO,pW,pM);
-               procD3S26M(pS,pR,pO,pW,pM);
+               pF(pR,pS,pO,pW,pM);
+               pF(pS,pR,pO,pW,pM);
             }
          }
       }
@@ -368,17 +427,17 @@ uint diffProcIsoD3S26M
       {
          #pragma acc data present_or_create( pR[:pO->n1B] ) copyin( pS[:pO->n1B] ) copyout( pR[:pO->n1B] )
          {
-            procD3S26M(pR,pS,pO,pW,pM);
+            pF(pR,pS,pO,pW,pM);
             for (i= 1; i < nI; i+= 2 )
             {
-               procD3S26M(pS,pR,pO,pW,pM);
-               procD3S26M(pR,pS,pO,pW,pM);
+               pF(pS,pR,pO,pW,pM);
+               pF(pR,pS,pO,pW,pM);
             }
          }
       }
    }
    return(i);
-} // diffProcIsoD3S26M
+} // diffProcIsoD3SxM
 
 void test (const DiffOrg * pO)
 {

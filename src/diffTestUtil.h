@@ -15,7 +15,7 @@ extern const float gEpsilon; //= 1.0 / (1<<30);
 /***/
 
 extern Bool32 initOrg (DiffOrg *pO, uint def, uint nP);
-extern void initW (DiffScalar w[], DiffScalar r, uint nHood, uint qBits);
+extern DiffScalar initW (DiffScalar w[], DiffScalar r, uint nHood, uint qBits);
 
 extern size_t setDefaultMap (D3MapElem *pM, const V3I *pD);
 extern void defFields (DiffScalar * pS, const DiffOrg *pO, DiffScalar v);

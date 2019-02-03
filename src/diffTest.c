@@ -108,7 +108,7 @@ void dump (const DiffScalar * pS)
 int main (int argc, char *argv[])
 {
    SMVal dT;
-   uint iT=0, iN= 0, iA= 0;
+   uint iT=0, iN= 0, iA= 0, nHood=26;
    int r= 0;
    if (init(&gCtx,1<<8))
    {
@@ -116,35 +116,41 @@ int main (int argc, char *argv[])
       const Index zSlice= gCtx.org.def.z / 2;
 
       defFields(gCtx.pSR[0], &(gCtx.org), m);
-      //initW(gCtx.wPhase[0].w, 0.5, 6, 0);
-      initW(gCtx.wPhase[0].w, 0.5, 18, 0);
 
       //test(&(gCtx.org));
 
       deltaT();
       //pragma acc set device_type(acc_device_none)
+
+      //initW(gCtx.wPhase[0].w, 0.5, 6, 0); // ***M8***
       //iT= diffProcIsoD3S6M(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), (D3S6IsoWeights*)(gCtx.wPhase), gCtx.pM, 100);
-      iT= diffProcIsoD3S18M(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), gCtx.wPhase, gCtx.pM, 10);
-      dT= deltaT();
-      iN= iT & 1;
-      DiffScalar s= sumField(gCtx.pSR[iN], 0, &(gCtx.org));
-      printf("diffProcIso... %u iter %G sec (%G msec/iter) sum=%G\n", iT, dT, 1000*dT / iT, s);
 
-      //dump(gCtx.pSR[iN]);
+      nHood=26;
+      if (initW(gCtx.wPhase[0].w, 0.5, nHood, 0) > 0)
+      {
+         iT= diffProcIsoD3SxM(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), gCtx.wPhase, gCtx.pM, 100, nHood);
+         dT= deltaT();
+         iN= iT & 1;
+         DiffScalar s= sumField(gCtx.pSR[iN], 0, &(gCtx.org));
+         printf("diffProc..%u %u iter %G sec (%G msec/iter) sum=%G\n", nHood, iT, dT, 1000*dT / iT, s);
 
-      saveSliceRGB("rgb/numerical.rgb", gCtx.pSR[iN], 0, zSlice, &(gCtx.org));
-      iA= iN^1;
+         //dump(gCtx.pSR[iN]);
+
+         saveSliceRGB("rgb/numerical.rgb", gCtx.pSR[iN], 0, zSlice, &(gCtx.org));
+         iA= iN^1;
 #if 1
-      // Search for Diffusion-time moment
-      DiffScalar Dt= sqrt(iT);
-      Dt= searchMin1(&(gCtx.ws), gCtx.pSR[iN], &(gCtx.org), m, Dt); // 8.18516
-      //Newtons method performs relatively poorly - due to discontinuity?
-      //Dt= searchNewton(&(gCtx.ws), gCtx.pSR[iN], &(gCtx.org), m, Dt);
+         // Search for Diffusion-time moment
+         DiffScalar Dt= sqrt(iT);
+         Dt= searchMin1(&(gCtx.ws), gCtx.pSR[iN], &(gCtx.org), m, Dt); // 8.18516
+         //Newtons method performs relatively poorly - due to discontinuity?
+         //Dt= searchNewton(&(gCtx.ws), gCtx.pSR[iN], &(gCtx.org), m, Dt);
+         saveSliceRGB("rgb/sad.rgb", gCtx.ws.p, 0, 0, &(gCtx.org));
 
-      initPhaseAnalytic(gCtx.pSR[iA], &(gCtx.org), 0, m, Dt);
-      saveSliceRGB("rgb/analytic.rgb", gCtx.pSR[iA], 0, zSlice, &(gCtx.org));
-      analyse(gCtx.pSR[iA], gCtx.pSR[iN], 0, &(gCtx.org));
+         initPhaseAnalytic(gCtx.pSR[iA], &(gCtx.org), 0, m, Dt);
+         saveSliceRGB("rgb/analytic.rgb", gCtx.pSR[iA], 0, zSlice, &(gCtx.org));
+         analyse(gCtx.pSR[iA], gCtx.pSR[iN], 0, &(gCtx.org));
 #endif
+      }
    }
    release(&gCtx);
    printf("Complete\n");

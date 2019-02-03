@@ -36,12 +36,15 @@ typedef uint D3MapElem;
 typedef struct
 {
    DiffScalar w[2]; // For lattice distances 0, 1 OR sqrt(2) OR sqrt(3) (centre, face-neighbour OR edge-neighbour OR vertex-neighbour)
-} D3S6IsoWeights, D3S8IsoWeights, D3S12IsoWeights;
+} D3S6IsoWeights;
+
+// D3S8IsoWeights, D3S12IsoWeights, D3S20IsoWeights 
+// NB - diagonal-only stencils create a pair of distinct subspaces (black vs white chessboard)
 
 typedef struct
 {
    DiffScalar w[3]; // For lattice distances 0, 1, sqrt(2) OR sqrt(3) (centre, face-neighbour, edge-neighbour OR vertex-neighbour)
-} D3S14IsoWeights, D3S18IsoWeights, D3S20IsoWeights;
+} D3S14IsoWeights, D3S18IsoWeights;
 
 typedef struct
 {
@@ -54,6 +57,7 @@ typedef struct
 // Isotropic 3D diffusion functions:
 
 // 6-point/2-weight stencil "3D Von-Neumann neighbourhood"
+// NB 8bit map entries & no weight padding
 extern uint diffProcIsoD3S6M 
 (
    DiffScalar * restrict pR,  // Result field(s)
@@ -64,26 +68,17 @@ extern uint diffProcIsoD3S6M
    const uint  nI   // iterations
 );
 
-// 18-point/3-weight stencil
-extern uint diffProcIsoD3S18M
+// Other stencils accessed through common interface
+// NB 32bit map entries and all weights padded 
+uint diffProcIsoD3SxM
 (
    DiffScalar * restrict pR,  // Result field(s)
    DiffScalar * restrict pS, // Source field(s)
    const DiffOrg        * pO, // descriptor
    const D3IsoWeights * pW,
    const D3MapElem    * pM,
-   const uint nI
-);
-
-// 26-point/4-weight stencil "3D Moore neighbourhood"
-extern uint diffProcIsoD3S26M
-(
-   DiffScalar * restrict pR,  // Result field(s)
-   DiffScalar * restrict pS, // Source field(s)
-   const DiffOrg        * pO, // descriptor
-   const D3IsoWeights * pW,
-   const D3MapElem    * pM,
-   const uint nI
+   const uint nI,
+   const uint nHood
 );
 
 extern void test (const DiffOrg * pO);
