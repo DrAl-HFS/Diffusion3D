@@ -320,7 +320,7 @@ DiffScalar initPhaseAnalytic (DiffScalar * pR, const DiffOrg *pO, const uint pha
    return(0);
 } // initPhaseAnalytic
 
-size_t saveSliceRGB (const char path[], const DiffScalar * pS, const uint phase, const uint z, const DiffOrg *pO)
+size_t saveSliceRGB (const char path[], const DiffScalar * pS, const uint phase, const uint z, const DiffOrg *pO, const MMSMVal *pMM)
 {
    if ((phase < pO->nPhase) && (z < pO->def.z))
    {
@@ -330,16 +330,21 @@ size_t saveSliceRGB (const char path[], const DiffScalar * pS, const uint phase,
       pB= malloc(nB);
       if (pB)
       {
-         DiffScalar rm[2]={0,0}, mm[2]= {1E34,-1E34};
+         MMSMVal mm, rmm;
+
          pS+= phase * pO->phaseStride + z * pO->stride[2];
-         for (size_t i=0; i < n1P; i++)
+         if (NULL == pMM)
          {
-            size_t j= i * pO->stride[0];
-            mm[0]= MIN(mm[0], pS[j]);
-            mm[1]= MAX(mm[1], pS[j]);
+            for (size_t i=0; i < n1P; i++)
+            {
+               size_t j= i * pO->stride[0];
+               mm.vMin= fmin(mm.vMin, pS[j]);
+               mm.vMax= fmax(mm.vMax, pS[j]);
+            }
+            pMM= &mm;
          }
-         if (0 != mm[0]) { rm[0]= 1.0 / mm[0]; }
-         if (0 != mm[1]) { rm[1]= 1.0 / mm[1]; }
+         if (0 != pMM->vMin) { rmm.vMin= 1.0 / pMM->vMin; }
+         if (0 != pMM->vMax) { rmm.vMax= 1.0 / pMM->vMax; }
          for (size_t i=0; i < n1P; i++)
          {
             size_t j= i * pO->stride[0];
@@ -347,13 +352,13 @@ size_t saveSliceRGB (const char path[], const DiffScalar * pS, const uint phase,
             unsigned char r= 0, g=0, b= 0;
             if (pS[j] > gEpsilon)
             {
-               float t= rm[1] * pS[j];
+               float t= rmm.vMax * pS[j];
                g= 0x00 + t * 0xF0;
                b= 0x40 + t * 0xBF;
             }
             else if (pS[j] < 0)
             {
-               float t= rm[0] * pS[j];
+               float t= rmm.vMin * pS[j];
                g= 0x00 + t * 0xF0;
                r= 0x40 + t * 0xBF;
             }
@@ -363,7 +368,7 @@ size_t saveSliceRGB (const char path[], const DiffScalar * pS, const uint phase,
             pB[k+2]= b;
          }
          nB= saveBuff(pB, path, nB);
-         printf("saveSliceRGB(%s ) - (mm=%G,%G) %zu bytes\n", path, mm[0],mm[1], nB);
+         printf("saveSliceRGB(%s ) - %zu bytes\n", path, nB);
          free(pB);
          return(nB);
       }
@@ -460,7 +465,12 @@ SMVal relDiffStrideNS (DiffScalar * pR, const DiffScalar * pS1, const DiffScalar
 } // relDiffStrideNS
 
 
-DiffScalar searchMin1 (const MemBuff * pWS, const DiffScalar *pS, const DiffOrg *pO, const DiffScalar ma, const DiffScalar Dt)
+DiffScalar searchMin1 
+(
+   SearchResult *pR, const MemBuff * pWS,
+   const DiffScalar *pS, const DiffOrg *pO,
+   const DiffScalar ma, const DiffScalar Dt, const uint f
+)
 {
    DiffScalar  *pTR= pWS->p;
    SearchPoint p, min[2];
@@ -474,13 +484,13 @@ DiffScalar searchMin1 (const MemBuff * pWS, const DiffScalar *pS, const DiffOrg 
       min[1].x= 1.5 * Dt;
       min[1].y= compareAnalyticP(pTR, pS, pO, ma, min[1].x);
       if (min[1].y < min[0].y) { SWAP(SearchPoint, min[0], min[1]); }
-      printf("searchMin1() -\n  Dt   SAD\n? %G %G\n? %G %G\n", min[0].x, min[0].y, min[1].x, min[1].y);
+      if (f & 1) { printf("searchMin1() -\n  Dt   SAD\n? %G %G\n? %G %G\n", min[0].x, min[0].y, min[1].x, min[1].y); }
 
       do
       {
          p.x= 0.5 * (min[0].x + min[1].x);
          p.y= compareAnalyticP(pTR, pS, pO, ma, p.x);
-         printf("? %G %G\n", p.x, p.y);
+         if (f & 1) { printf("? %G %G\n", p.x, p.y); }
          if (p.y < min[0].y)
          {
             r+= p.y < (min[0].y - gEpsilon);
@@ -494,11 +504,42 @@ DiffScalar searchMin1 (const MemBuff * pWS, const DiffScalar *pS, const DiffOrg 
          }
       } while ((--r > 0) && ((min[1].y - min[0].y) > gEpsilon));
    }
-
-   printf(": %G %G\n", min[0].x, min[0].y);
+   if (pR)
+   {
+      pR->Dt=  min[0].x;
+      pR->sad= min[0].y;
+   }
+   if (f & 1) { printf(": %G %G\n", min[0].x, min[0].y); }
    return(min[0].x);
 } // searchMin1
 
+// Simple "flattened" reduction - let the compiler figure it out...
+static void reductF (RedRes * pR, const DiffScalar * const pS, const size_t n)
+{
+   SMVal sum, vMin, vMax; // =0, vMin=1E34, vMax=-1E34;
+
+   sum= vMin= vMax= *pS;
+   #pragma acc data present( pS[:n] ) copy( n, sum, vMin, vMax )
+   {
+      #pragma acc parallel reduction(+: sum )
+      for (size_t i=1; i < n; i++) { sum+= pS[i]; }
+      #pragma acc parallel reduction(min: vMin )
+      for (size_t i=1; i < n; i++) { vMin= fmin(vMin, pS[i]); }
+      #pragma acc parallel reduction(max: vMax )
+      for (size_t i=1; i < n; i++) { vMax= fmax(vMax, pS[i]); }
+   }
+   pR->sum= sum;
+   pR->mm.vMin= vMin;
+   pR->mm.vMax= vMax;
+} // reductF
+
+void reducto (RedRes * pR, const DiffScalar * const pS, const size_t n)
+{
+   #pragma acc data present_or_copyin( pS[:n] )
+   reductF(pR,pS,n);
+} // reducto
+
+// DEPRECATE
 DiffScalar searchNewton (const MemBuff * pWS, const DiffScalar *pS, const DiffOrg *pO, const DiffScalar ma, const DiffScalar estDt)
 {
    DiffScalar  *pTR= pWS->p;

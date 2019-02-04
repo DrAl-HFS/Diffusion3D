@@ -73,7 +73,7 @@ extern uint diffProcIsoD3S6M
 uint diffProcIsoD3SxM
 (
    DiffScalar * restrict pR,  // Result field(s)
-   DiffScalar * restrict pS, // Source field(s)
+   DiffScalar * restrict pS,  // Source field(s)
    const DiffOrg        * pO, // descriptor
    const D3IsoWeights * pW,
    const D3MapElem    * pM,

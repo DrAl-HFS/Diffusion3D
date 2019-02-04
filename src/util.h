@@ -49,6 +49,7 @@ typedef double F64;
 
 typedef int Bool32;
 typedef double SMVal; // Stat measure value - use widest available IEEE type supported by hardware
+typedef struct { SMVal vMin, vMax; } MMSMVal;
 typedef struct
 {
    SMVal    m[3];

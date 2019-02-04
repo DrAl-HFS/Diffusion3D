@@ -16,6 +16,9 @@ typedef struct
 
 static DiffTestContext gCtx={0,};
 
+const DiffScalar gM= 1.0;
+
+
 /***/
 
 
@@ -31,7 +34,7 @@ void analyse (const DiffScalar * pS1, const DiffScalar * pS2, const int phase, c
    DiffScalar s2= sumField(pS2, phase, pO);
    printf("sums= %G, %G\n", s1, s2);
    */
-   saveSliceRGB("rgb/diff.rgb", gCtx.ws.p, 0, pO->def.z / 2, &(gCtx.org));
+   saveSliceRGB("rgb/diff.rgb", gCtx.ws.p, 0, pO->def.z / 2, &(gCtx.org), NULL);
 } // analyse
 
 
@@ -105,53 +108,93 @@ void dump (const DiffScalar * pS)
    }
 } // dump
 
+typedef struct
+{
+   uint nHood, iter;
+   DiffScalar  rD;
+} Test1Param;
+
+typedef struct
+{
+   SMVal          tProc;
+   SearchResult  sr;
+} Test1Res;
+
+uint test1 (Test1Res *pR, const Test1Param *pP)
+{
+   uint iT=0, iN= 0, iA= 0;
+
+   if (initW(gCtx.wPhase[0].w, pP->rD, pP->nHood, 0) > 0)
+   {
+      defFields(gCtx.pSR[0], &(gCtx.org), gM);
+      deltaT();
+      iT= diffProcIsoD3SxM(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), gCtx.wPhase, gCtx.pM, pP->iter, pP->nHood);
+      pR->tProc= deltaT();
+      iN= iT & 1;
+      // Search for Diffusion-time moment
+      DiffScalar Dt= sqrt(iT * 2 * pP->rD);
+      Dt= searchMin1(&(pR->sr), &(gCtx.ws), gCtx.pSR[iN], &(gCtx.org), gM, Dt, 0);
+   }
+   return(iT);
+} // test1
+
+void redCheck (MMSMVal *pMM, const DiffScalar *pN, const DiffScalar *pA)
+{
+   RedRes rN, rA;
+   SMVal dt;
+
+   deltaT();
+   reducto(&rN, pN, gCtx.org.n1F);
+   reducto(&rA, pA, gCtx.org.n1F);
+   dt= deltaT();
+   //if ((rN.sum != gM) || (rA.sum != gM)) { 
+   printf("sums: N=%G A=%G\n", rN.sum, rA.sum);
+   pMM->vMin= fmin(rN.mm.vMin, rA.mm.vMin);
+   pMM->vMax= fmin(rN.mm.vMax, rA.mm.vMax);
+   printf("MM: N=%G,%G A=%G,%G %Gsec\n", rN.mm.vMin, rN.mm.vMax, rA.mm.vMin, rA.mm.vMax, dt);
+} // redCheck
+
 int main (int argc, char *argv[])
 {
-   SMVal rD=0.5, dT;
-   uint iT=0, iN= 0, iA= 0, nHood=26;
+   Test1Param param;
+   Test1Res   res;
    int r= 0;
+
    if (init(&gCtx,1<<8))
    {
-      const DiffScalar m= 1.0;
       const Index zSlice= gCtx.org.def.z / 2;
-
-      defFields(gCtx.pSR[0], &(gCtx.org), m);
+      uint iT=0, iN= 0, iA= 0;
+      U8 nHoods[]={6,14,18,26};
 
       //test(&(gCtx.org));
-
-      deltaT();
       //pragma acc set device_type(acc_device_none)
-
       //initW(gCtx.wPhase[0].w, 0.5, 6, 0); // ***M8***
       //iT= diffProcIsoD3S6M(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), (D3S6IsoWeights*)(gCtx.wPhase), gCtx.pM, 100);
 
-      nHood=26;
-      if (initW(gCtx.wPhase[0].w, rD, nHood, 0) > 0)
+      for (int i=0; i<sizeof(nHoods); i++)
       {
-         //iT+= diffProcIsoD3SxM(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), gCtx.wPhase, gCtx.pM, 2, nHood);
-         //printf("diffProc\n");
-         iT+= diffProcIsoD3SxM(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), gCtx.wPhase, gCtx.pM, 100, nHood);
-         dT= deltaT();
-         iN= iT & 1;
-         DiffScalar s= sumField(gCtx.pSR[iN], 0, &(gCtx.org));
-         printf("diffProc..%u %u iter %G sec (%G msec/iter) sum=%G\n", nHood, iT, dT, 1000*dT / iT, s);
+         param.rD=    0.5;
+         param.nHood= nHoods[i];
+         param.iter=  100;
+         if (iT= test1(&res,&param))
+         {
+            MMSMVal mm;
 
-         //dump(gCtx.pSR[iN]);
-
-         saveSliceRGB("rgb/numerical.rgb", gCtx.pSR[iN], 0, zSlice, &(gCtx.org));
-         iA= iN^1;
-#if 1
-         // Search for Diffusion-time moment
-         DiffScalar Dt= sqrt(iT);// * 2 * rD); ? 
-         Dt= searchMin1(&(gCtx.ws), gCtx.pSR[iN], &(gCtx.org), m, Dt); // 8.18516
-         //Newtons method performs relatively poorly - due to discontinuity?
-         //Dt= searchNewton(&(gCtx.ws), gCtx.pSR[iN], &(gCtx.org), m, Dt);
-         saveSliceRGB("rgb/sad.rgb", gCtx.ws.p, 0, 0, &(gCtx.org));
-
-         initPhaseAnalytic(gCtx.pSR[iA], &(gCtx.org), 0, m, Dt);
-         saveSliceRGB("rgb/analytic.rgb", gCtx.pSR[iA], 0, zSlice, &(gCtx.org));
-         analyse(gCtx.pSR[iA], gCtx.pSR[iN], 0, &(gCtx.org));
-#endif
+            printf("diffProc..%u %u iter %G sec (%G msec/iter) Dt=%G sad=%G\n", param.nHood, iT, res.tProc, 1000*res.tProc / iT, res.sr.Dt, res.sr.sad);
+            iN= iT & 1;
+            iA= iN ^ 1;
+            initPhaseAnalytic(gCtx.pSR[iA], &(gCtx.org), 0, gM, res.sr.Dt);
+            redCheck(&mm, gCtx.pSR[iN], gCtx.pSR[iA]);
+            {
+               char path[256];
+               snprintf(path, sizeof(path)-1, "%s/N%02d%s", "rgb", param.nHood, "numerical.rgb");
+               saveSliceRGB(path, gCtx.pSR[iN], 0, zSlice, &(gCtx.org), &mm);
+               snprintf(path, sizeof(path)-1, "%s/N%02d%s", "rgb", param.nHood, "analytic.rgb");
+               saveSliceRGB(path, gCtx.pSR[iA], 0, zSlice, &(gCtx.org), &mm);
+               snprintf(path, sizeof(path)-1, "%s/N%02d%s", "rgb", param.nHood, "sad.rgb");
+               saveSliceRGB(path, gCtx.ws.p, 0, 0, &(gCtx.org), NULL);
+            }
+         }
       }
    }
    release(&gCtx);

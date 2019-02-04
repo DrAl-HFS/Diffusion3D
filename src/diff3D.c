@@ -405,7 +405,7 @@ uint diffProcIsoD3SxM
    {
       case 26 : pF= (DiffProcIsoMapFuncPtr)procD3S26M; break;
       case 18 : pF= (DiffProcIsoMapFuncPtr)procD3S18M; break;
-      case 14 : pF= (DiffProcIsoMapFuncPtr)procD3S14M; break; // BUG fixed
+      case 14 : pF= (DiffProcIsoMapFuncPtr)procD3S14M; break;
       case 6  : pF= (DiffProcIsoMapFuncPtr)procD3S6M; break;
    }
 
