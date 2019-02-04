@@ -66,7 +66,7 @@ INLINE void setS8M (Stride s8m[], const Stride step[], const uint m)
 INLINE void setS14M (Stride s14m[], const Stride step[], const uint m)
 {
    setS6M(s14m, step, m);
-   setS8M(s14m+6, step, m>>6);
+   setS8M(s14m+6, step, m>>18); // NOTE fixed location of corner flags!
 } // setS14M
 
 INLINE void setS18M (Stride s18m[], const Stride step[], const uint m)
@@ -318,9 +318,9 @@ void procD3S6M8
 {
    #pragma acc data present( pR[:pO->n1B], pS[:pO->n1B], pO[:1], pW[:pO->nPhase], pM[:pO->n1F] )
    {
+      #pragma acc parallel loop
       for (Index z=0; z < pO->def.z; z++)
       {
-         #pragma acc parallel loop
          for (Index y=0; y < pO->def.y; y++)
          {
             #pragma acc loop vector
@@ -344,6 +344,7 @@ void procD3S6M8
       }
    }
 } // procD3S6M8
+
 
 /***/
 
@@ -404,11 +405,10 @@ uint diffProcIsoD3SxM
    {
       case 26 : pF= (DiffProcIsoMapFuncPtr)procD3S26M; break;
       case 18 : pF= (DiffProcIsoMapFuncPtr)procD3S18M; break;
-      //case 14 : pF= (DiffProcIsoMapFuncPtr)procD3S14M; break; // UNDIAGNOSED BUG
+      case 14 : pF= (DiffProcIsoMapFuncPtr)procD3S14M; break; // BUG fixed
       case 6  : pF= (DiffProcIsoMapFuncPtr)procD3S6M; break;
    }
 
-   
    if (pF)
    #pragma acc data present_or_copyin( pO[:1], pW[:pO->nPhase], pM[:pO->n1F] )
    {

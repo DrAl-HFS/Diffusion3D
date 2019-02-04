@@ -107,7 +107,7 @@ void dump (const DiffScalar * pS)
 
 int main (int argc, char *argv[])
 {
-   SMVal dT;
+   SMVal rD=0.5, dT;
    uint iT=0, iN= 0, iA= 0, nHood=26;
    int r= 0;
    if (init(&gCtx,1<<8))
@@ -126,9 +126,11 @@ int main (int argc, char *argv[])
       //iT= diffProcIsoD3S6M(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), (D3S6IsoWeights*)(gCtx.wPhase), gCtx.pM, 100);
 
       nHood=26;
-      if (initW(gCtx.wPhase[0].w, 0.5, nHood, 0) > 0)
+      if (initW(gCtx.wPhase[0].w, rD, nHood, 0) > 0)
       {
-         iT= diffProcIsoD3SxM(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), gCtx.wPhase, gCtx.pM, 100, nHood);
+         //iT+= diffProcIsoD3SxM(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), gCtx.wPhase, gCtx.pM, 2, nHood);
+         //printf("diffProc\n");
+         iT+= diffProcIsoD3SxM(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), gCtx.wPhase, gCtx.pM, 100, nHood);
          dT= deltaT();
          iN= iT & 1;
          DiffScalar s= sumField(gCtx.pSR[iN], 0, &(gCtx.org));
@@ -140,7 +142,7 @@ int main (int argc, char *argv[])
          iA= iN^1;
 #if 1
          // Search for Diffusion-time moment
-         DiffScalar Dt= sqrt(iT);
+         DiffScalar Dt= sqrt(iT);// * 2 * rD); ? 
          Dt= searchMin1(&(gCtx.ws), gCtx.pSR[iN], &(gCtx.org), m, Dt); // 8.18516
          //Newtons method performs relatively poorly - due to discontinuity?
          //Dt= searchNewton(&(gCtx.ws), gCtx.pSR[iN], &(gCtx.org), m, Dt);
