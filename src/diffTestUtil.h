@@ -5,9 +5,7 @@
 #ifndef DIFF_TEST_UTIL_H
 #define DIFF_TEST_UTIL_H
 
-#include "diff3D.h"
-
-typedef struct { V3I min, max; } MMV3I;
+#include "diff3DUtil.h"
 
 extern const float gEpsilon; //= 1.0 / (1<<30);
 
@@ -19,14 +17,11 @@ typedef struct
 
 /***/
 
-extern Bool32 initOrg (DiffOrg *pO, uint def, uint nP);
-extern DiffScalar initW (DiffScalar w[], DiffScalar r, uint nHood, uint qBits);
-
-extern size_t setDefaultMap (D3MapElem *pM, const V3I *pD);
 extern void defFields (DiffScalar * pS, const DiffOrg *pO, DiffScalar v);
 
 extern float d2F3 (float dx, float dy, float dz);
-extern void setDiffK (DiffScalar k[2], const DiffScalar Dt, const uint dim);
+extern float setDiffIsoK (DiffScalar k[2], const DiffScalar Dt, const uint dim);
+
 extern DiffScalar compareAnalytic (DiffScalar * restrict pTR, const DiffScalar * pS, const DiffOrg *pO, const DiffScalar v, const DiffScalar Dt);
 extern DiffScalar initPhaseAnalytic (DiffScalar * pR, const DiffOrg *pO, const uint phase, const DiffScalar v, const DiffScalar Dt);
 

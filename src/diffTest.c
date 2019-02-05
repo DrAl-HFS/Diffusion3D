@@ -124,7 +124,7 @@ uint test1 (Test1Res *pR, const Test1Param *pP)
 {
    uint iT=0, iN= 0, iA= 0;
 
-   if (initW(gCtx.wPhase[0].w, pP->rD, pP->nHood, 0) > 0)
+   if (initIsoW(gCtx.wPhase[0].w, pP->rD, pP->nHood, 0) > 0)
    {
       defFields(gCtx.pSR[0], &(gCtx.org), gM);
       deltaT();
