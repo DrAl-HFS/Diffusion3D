@@ -23,7 +23,8 @@ extern float d2F3 (float dx, float dy, float dz);
 extern float setDiffIsoK (DiffScalar k[2], const DiffScalar Dt, const uint dim);
 
 extern DiffScalar compareAnalytic (DiffScalar * restrict pTR, const DiffScalar * pS, const DiffOrg *pO, const DiffScalar v, const DiffScalar Dt);
-extern DiffScalar initPhaseAnalytic (DiffScalar * pR, const DiffOrg *pO, const uint phase, const DiffScalar v, const DiffScalar Dt);
+extern DiffScalar initAnalytic (DiffScalar * pR, const DiffOrg *pO, const DiffScalar v, const DiffScalar Dt);
+extern DiffScalar analyseField (StatRes1 r[3], const DiffScalar * pS, const DiffOrg *pO);
 
 extern size_t saveSliceRGB (const char path[], const DiffScalar * pS, const uint phase, const uint z, const DiffOrg *pO, const MMSMVal *pMM);
 

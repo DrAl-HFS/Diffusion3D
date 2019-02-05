@@ -93,39 +93,61 @@ DiffScalar compareAnalytic (DiffScalar * restrict pTR, const DiffScalar * pS, co
    return(sad);
 } // compareAnalytic
 
-DiffScalar initPhaseAnalytic (DiffScalar * pR, const DiffOrg *pO, const uint phase, const DiffScalar v, const DiffScalar Dt)
+DiffScalar initAnalytic (DiffScalar * pR, const DiffOrg *pO, const DiffScalar v, const DiffScalar Dt)
 {
-   if (phase < pO->nPhase)
+   DiffScalar k[2], t= 0; //sigma, rm, r2m, t[3]= {0,0,0};
+   V3I i, c;
+   c.x= pO->def.x/2; c.y= pO->def.y/2; c.z= pO->def.z/2;
+
+   //sigma= 
+   setDiffIsoK(k, Dt, 3);
+   //rm= 4 * sigma;
+   //r2m= rm * rm;
+
+   for (i.z=0; i.z < pO->def.z; i.z++)
    {
-      DiffScalar k[2], sigma, rm, r2m, t[3]= {0,0,0};
-      V3I i, c;
-      c.x= pO->def.x/2; c.y= pO->def.y/2; c.z= pO->def.z/2;
-
-      sigma= setDiffIsoK(k, Dt, 3);
-      rm= 4 * sigma;
-      r2m= rm * rm;
-
-      pR+= phase * pO->phaseStride;
-      for (i.z=0; i.z < pO->def.z; i.z++)
+      for (i.y=0; i.y < pO->def.y; i.y++)
       {
-         for (i.y=0; i.y < pO->def.y; i.y++)
+         for (i.x=0; i.x < pO->def.x; i.x++)
          {
-            for (i.x=0; i.x < pO->def.x; i.x++)
-            {
-               float r2= d2F3( i.x - c.x, i.y - c.y, i.z - c.z );
+            float r2= d2F3( i.x - c.x, i.y - c.y, i.z - c.z );
 
-               size_t j= i.x * pO->stride[0] + i.y * pO->stride[1] + i.z * pO->stride[2];
-               pR[j]= v * k[0] * exp(r2 * k[1]);
-               t[(r2 > r2m)]+= pR[j];
-            }
+            size_t j= i.x * pO->stride[0] + i.y * pO->stride[1] + i.z * pO->stride[2];
+            t+= pR[j]= v * k[0] * exp(r2 * k[1]);
+            //t[(r2 > r2m)]+= pR[j];
          }
       }
-      for (size_t j=0; j < pO->n1F; j++) { t[2]+= pR[j]; }
-      printf("initPhaseAnalytic() - rm (4s) =%G, t=%G,%G,%G (%G)\n", rm, t[0], t[1], t[2], t[0]+t[1]);
-      return(t[2]);
    }
-   return(0);
-} // initPhaseAnalytic
+   //for (size_t j=0; j < pO->n1F; j++) { t[2]+= pR[j]; }
+   //printf("initPhaseAnalytic() - rm (4s) =%G, t=%G,%G,%G (%G)\n", rm, t[0], t[1], t[2], t[0]+t[1]);
+   return(t);
+} // initAnalytic
+
+DiffScalar analyseField (StatRes1 r[3], const DiffScalar * pS, const DiffOrg *pO)
+{
+   StatMom sm[3]={0,};
+   DiffScalar tv=0;
+
+   memset(sm, 0, sizeof(StatMom)*3);
+
+   for (Index z=0; z < pO->def.z; z++)
+   {
+      for (Index y=0; y < pO->def.y; y++)
+      {
+         for (Index x=0; x < pO->def.x; x++)
+         {
+            const size_t i= x * pO->stride[0] + y * pO->stride[1] + z * pO->stride[2];
+            const DiffScalar w= pS[i];
+            //float r2= d2F3( x - c.x, y - c.y, z - c.z );
+            statAddW(sm+0, x, w);
+            statAddW(sm+1, y, w);
+            statAddW(sm+2, z, w);
+         }
+      }
+   }
+   for (int i=0; i<3; i++) { statGetRes1(r+i, sm+i, 0); tv+= r[i].v; }
+   return(tv / 3);
+} // analyseField
 
 size_t saveSliceRGB (const char path[], const DiffScalar * pS, const uint phase, const uint z, const DiffOrg *pO, const MMSMVal *pMM)
 {
@@ -285,31 +307,35 @@ DiffScalar searchMin1
 
    #pragma acc data create( pTR[:pO->n1P] ) copyin( pS[:pO->n1F], pO[:1] ) copyout( pTR[:pO->n1P] )
    {
+      float w= ((f >> 1) & 0xFF) / 0xFF;
       //p.y=  compareAnalytic(pS, pO, ma, Dt);
-      min[0].x= 0.5 * Dt;
+      min[0].x= (1-w) * Dt;
       min[0].y= compareAnalyticP(pTR, pS, pO, ma, min[0].x);
-      min[1].x= 1.5 * Dt;
-      min[1].y= compareAnalyticP(pTR, pS, pO, ma, min[1].x);
-      if (min[1].y < min[0].y) { SWAP(SearchPoint, min[0], min[1]); }
-      if (f & 1) { printf("searchMin1() -\n  Dt   SAD\n? %G %G\n? %G %G\n", min[0].x, min[0].y, min[1].x, min[1].y); }
-
-      do
+      if (w > 0)
       {
-         p.x= 0.5 * (min[0].x + min[1].x);
-         p.y= compareAnalyticP(pTR, pS, pO, ma, p.x);
-         if (f & 1) { printf("? %G %G\n", p.x, p.y); }
-         if (p.y < min[0].y)
+         min[1].x= (1+w) * Dt;
+         min[1].y= compareAnalyticP(pTR, pS, pO, ma, min[1].x);
+         if (min[1].y < min[0].y) { SWAP(SearchPoint, min[0], min[1]); }
+         if (f & 1) { printf("searchMin1() -\n  Dt   SAD\n? %G %G\n? %G %G\n", min[0].x, min[0].y, min[1].x, min[1].y); }
+
+         do
          {
-            r+= p.y < (min[0].y - gEpsilon);
-            min[1]= min[0];
-            min[0]= p;
-         }
-         else if (p.y < min[1].y)
-         {
-            r+= p.y < (min[1].y - gEpsilon);
-            min[1]= p;
-         }
-      } while ((--r > 0) && ((min[1].y - min[0].y) > gEpsilon));
+            p.x= 0.5 * (min[0].x + min[1].x);
+            p.y= compareAnalyticP(pTR, pS, pO, ma, p.x);
+            if (f & 1) { printf("? %G %G\n", p.x, p.y); }
+            if (p.y < min[0].y)
+            {
+               r+= p.y < (min[0].y - gEpsilon);
+               min[1]= min[0];
+               min[0]= p;
+            }
+            else if (p.y < min[1].y)
+            {
+               r+= p.y < (min[1].y - gEpsilon);
+               min[1]= p;
+            }
+         } while ((--r > 0) && ((min[1].y - min[0].y) > gEpsilon));
+      }
    }
    if (pR)
    {

@@ -80,6 +80,7 @@ extern size_t saveBuff (const void * const pB, const char * const path, const si
 
 extern SMVal deltaT (void);
 
+extern void statAddW (const StatMom * const pS, const SMVal v, const SMVal w);
 extern U32 statGetRes1 (StatRes1 * const pR, const StatMom * const pS, const SMVal dof);
 
 #endif // UTIL_H

@@ -84,6 +84,13 @@ SMVal deltaT (void)
    return(dt);
 } // deltaT
 
+void statAddW (const StatMom * const pS, const SMVal v, const SMVal w)
+{
+   pS->m[0]+= w;
+   pS->m[1]+= v * w;
+   pS->m[2]+= v * v * w;
+} // statAddW
+
 U32 statGetRes1 (StatRes1 * const pR, const StatMom * const pS, const SMVal dof)
 {
    StatRes1 r={ 0, 0 };

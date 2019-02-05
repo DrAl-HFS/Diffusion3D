@@ -132,8 +132,11 @@ uint test1 (Test1Res *pR, const Test1Param *pP)
       pR->tProc= deltaT();
       iN= iT & 1;
       // Search for Diffusion-time moment
+      StatRes1 r[3];
+      DiffScalar isovar= analyseField(r, gCtx.pSR[iN], &(gCtx.org));
+      //printf("analyseField() - iso=%G, m=%G,%G,%G, v=%G,%G,%G\n", isovar, r[0].m, r[1].m, r[2].m, r[0].v, r[1].v, r[2].v);
       DiffScalar Dt= sqrt(iT * 2 * pP->rD);
-      Dt= searchMin1(&(pR->sr), &(gCtx.ws), gCtx.pSR[iN], &(gCtx.org), gM, Dt, 0);
+      Dt= searchMin1(&(pR->sr), &(gCtx.ws), gCtx.pSR[iN], &(gCtx.org), gM, 0.5 * isovar, 0);
    }
    return(iT);
 } // test1
@@ -187,7 +190,7 @@ int main (int argc, char *argv[])
                printf("diffProc..%u %u iter %G sec (%G msec/iter) Dt=%G sad=%G\n", param.nHood, iT, pR->tProc, 1000*pR->tProc / iT, pR->sr.Dt, pR->sr.sad);
                iN= iT & 1;
                iA= iN ^ 1;
-               initPhaseAnalytic(gCtx.pSR[iA], &(gCtx.org), 0, gM, pR->sr.Dt);
+               initAnalytic(gCtx.pSR[iA], &(gCtx.org), gM, pR->sr.Dt);
                redCheck(&mm, gCtx.pSR[iN], gCtx.pSR[iA], 1);
                {
                   char path[256];
@@ -202,13 +205,14 @@ int main (int argc, char *argv[])
             pR++;
          }
       }
-      printf("NH I\tt\tDt\tSAD\tEfficiency(Dt/t)\n");
+      //const SMVal tA= 0.05, rA= 1.0 / tA;
+      printf("NH I\tt(sec)\tDt\tSAD\t\tAcc\tEff(Dt/t)\n");
       for (int h=0; h<sizeof(nHoods); h++)
       {
          pR= res[h];
          for (int i=20; i<=100; i+= 20)
          {
-            printf("%u %u\t%Gsec\t%G\t%G\t%G\n", nHoods[h], i, pR->tProc, pR->sr.Dt, pR->sr.sad, pR->sr.Dt / pR->tProc);
+            printf("%2u %3u\t%5.03G\t%5.03G\t%7.05G\t%5.03G\t%5.03G\n", nHoods[h], i, pR->tProc, pR->sr.Dt, pR->sr.sad, gM-pR->sr.sad, pR->sr.Dt / pR->tProc);
             pR++;
          }
       }
