@@ -4,8 +4,58 @@
 
 #include "diff3DUtil.h"
 
+typedef struct
+{
+   V3I   def;
+   Index stride[3];
+   Index step[26];
+   MMV3I mm;
+} MapOrg;
+
 
 /***/
+
+static void map6TransferU8 (D3S6MapElem * restrict pM, const U8 *pU8, const size_t n, const U8 t)
+{
+   for (size_t i=0; i<n; i++) { pM[i]= (pU8[i] <= t) ? ((1<<6)-1) : 0; }
+} // map26TransferU8
+
+static size_t map26TransferU8 (D3MapElem * restrict pM, const U8 *pU8, const size_t n, const U8 t)
+{
+   size_t nOpen=0;
+   for (size_t i=0; i<n; i++)
+   { 
+      pM[i]= (pU8[i] <= t) ? ((1<<26)-1) : 0;
+      nOpen+= (0 != pM[i]);
+   }
+   return(nOpen);
+} // map26TransferU8
+
+static D3MapElem conformantS26M (const D3MapElem *pM, Index step[26])
+{
+   D3MapElem m= *pM;
+   for (int i=0; i < 26; i++)
+   {
+      const uint t= 1 << i;
+      if ((m & t) && (0 == pM[ step[i] ])) { m&= ~t; }
+   }
+   return(m);
+} // conformantS26M
+
+static void adjustMap26 (D3MapElem *pM, const MapOrg *pO)
+{
+   for (Index z= pO->mm.min.z; z < pO->mm.max.z; z++)
+   {
+      for (Index y= pO->mm.min.y; y < pO->mm.max.y; y++)
+      {
+         for (Index x= pO->mm.min.x; x < pO->mm.max.x; x++)
+         {
+            const size_t i= x * pO->stride[0] + y * pO->stride[0] + z * pO->stride[1];
+            pM[i]= conformantS26M(pM + i, pO->step);
+         }
+      }
+   }
+} // adjustMap26
 
 static uint getBoundaryM6 (Index x, Index y, Index z, const MMV3I *pMM)
 {
@@ -65,7 +115,7 @@ static uint getBoundaryM12 (const uint m6)
 static uint getMapElem (Index x, Index y, Index z, const MMV3I *pMM)
 {
    const uint m6= getBoundaryM6(x, y, z, pMM);
-   return( m6 | (getBoundaryM12(m6) << 6) );
+   return( m6 | (getBoundaryM12(m6) << 6) | (getBoundaryM8(m6) << 18) );
 } // getMapElem
 
 static uint getMapElemV (Index x, Index y, Index z, const MMV3I *pMM)
@@ -73,61 +123,73 @@ static uint getMapElemV (Index x, Index y, Index z, const MMV3I *pMM)
    const uint m6= getBoundaryM6(x, y, z, pMM);
    const uint m12= getBoundaryM12(m6);
    const uint m8= getBoundaryM8(m6);
-   printf("getMapElemV() - m6=0x%x, m12=0x%x, m8=0x%x\n", m6, m12, m8);
-   return(m6 | (m12 << 6) );
+   printf("getMapElemV(%d, %d, %d) - m6=0x%x, m12=0x%x, m8=0x%x\n", x, y, z, m6, m12, m8);
+   return(m6 | (m12 << 6) | (m8 << 18));
 } // getMapElemV
 
-size_t setDefaultMap (D3MapElem *pM, const V3I *pD)
+static void sealBoundaryMap (D3MapElem *pM, const MapOrg *pO)
 {
-   const size_t nP= pD->x * pD->y;
-   const size_t nV= nP * pD->z;
-   const Stride s[2]= {pD->x,nP};
-   const MMV3I mm= { 0, 0, 0, pD->x-1, pD->y-1, pD->z-1 };
-   Index x, y, z;
-   const D3MapElem me= getMapElemV(pD->x/2, pD->y/2, pD->z/2, &mm);
+   for (Index y= pO->mm.min.y; y <= pO->mm.max.y; y++)
+   {
+      for (Index x= pO->mm.min.x; x <= pO->mm.max.x; x++)
+      {
+         const size_t i= x * pO->stride[0] + y * pO->stride[1] + pO->mm.min.z * pO->stride[2];
+         const size_t j= x * pO->stride[0] + y * pO->stride[1] + pO->mm.max.z * pO->stride[2];
+         pM[i]&= getMapElem(x, y, pO->mm.min.z, &(pO->mm));
+         pM[j]&= getMapElem(x, y, pO->mm.max.z, &(pO->mm));
+      }
+   }
+   for (Index z= pO->mm.min.z; z <= pO->mm.max.z; z++)
+   {
+      for (Index x= pO->mm.min.x; x <= pO->mm.max.x; x++)
+      {
+         const size_t i= x * pO->stride[0] + pO->mm.min.y * pO->stride[1] + z * pO->stride[2];
+         const size_t j= x * pO->stride[0] + pO->mm.max.y * pO->stride[1] + z * pO->stride[2];
+         pM[i]&= getMapElem(x, pO->mm.min.y, z, &(pO->mm));
+         pM[j]&= getMapElem(x, pO->mm.max.y, z, &(pO->mm));
+      }
+      for (Index y= pO->mm.min.y; y <= pO->mm.max.y; y++)
+      {
+         const size_t i= pO->mm.min.x * pO->stride[0] + y * pO->stride[1] + z * pO->stride[2];
+         const size_t j= pO->mm.max.x * pO->stride[0] + y * pO->stride[1] + z * pO->stride[2];
+         pM[i]&= getMapElem(pO->mm.min.x, y, z, &(pO->mm));
+         pM[j]&= getMapElem(pO->mm.max.x, y, z, &(pO->mm));
+      }
+   }
+} // sealBoundaryMap
 
-   for (z=1; z < pD->z-1; z++)
-   {
-      for (y=1; y < pD->y-1; y++)
-      {
-         for (x=1; x < pD->x-1; x++)
-         {
-            pM[x + y * s[0] + z * s[1]]= me;
-         }
-      }
-   }
-   z= pD->z-1;
-   for (y=0; y < pD->y; y++)
-   {
-      for (x=0; x < pD->x; x++)
-      {
-         pM[x + y * s[0] + 0 * s[1]]= getMapElem(x,y,0,&mm);
-         pM[x + y * s[0] + z * s[1]]= getMapElem(x,y,z,&mm);
-      }
-   }
-   for (z=0; z < pD->z; z++)
-   {
-      y= pD->y-1;
-      for (x=0; x < pD->x; x++)
-      {
-         pM[x + 0 * s[0] + z * s[1]]= getMapElem(x,0,z,&mm);
-         pM[x + y * s[0] + z * s[1]]= getMapElem(x,y,z,&mm);
-      }
-      x= pD->x-1;
-      for (y=0; y < pD->y; y++)
-      {
-         pM[0 + y * s[0] + z * s[1]]= getMapElem(0,y,z,&mm);
-         pM[x + y * s[0] + z * s[1]]= getMapElem(x,y,z,&mm);
-      }
-   }
-#if 1
-   size_t t= 0;
-   for (size_t i=0; i < nV; i++) { t+= pM[i] ^ me; }
-   return(t);
-#endif
-} // setDefaultMap
+static void step6FromStride (Index step[6], const Index stride[3])
+{
+   step[0]= -stride[0];
+   step[1]=  stride[0];
+   step[2]= -stride[1];
+   step[3]=  stride[1];
+   step[4]= -stride[2];
+   step[5]=  stride[2];
+} // step6FromStride
 
-Bool32 initOrg (DiffOrg *pO, uint def, uint nP)
+static size_t initMapOrg (MapOrg *pO, const V3I *pD)
+{
+   pO->def= *pD;
+
+   pO->stride[0]= 1;
+   pO->stride[1]= pO->def.x;
+   pO->stride[2]= pO->def.x * pO->def.y;
+
+   step6FromStride(pO->step, pO->stride);
+   diffSet6To26(pO->step);
+   //printf("initMapOrg() - s26m[]=\n");
+   //for (int i=0; i<26; i++) { printf("%d\n", pO->step[i]); }
+
+   pO->mm.min.x= pO->mm.min.y= pO->mm.min.z= 0;
+   pO->mm.max.x= pO->def.x-1;
+   pO->mm.max.y= pO->def.y-1;
+   pO->mm.max.z= pO->def.z-1;
+
+   return((size_t)pO->stride[2] * pO->def.z);
+} // initMapOrg
+
+Bool32 initDiffOrg (DiffOrg *pO, uint def, uint nP)
 {
    size_t n= 1;
 
@@ -143,20 +205,14 @@ Bool32 initOrg (DiffOrg *pO, uint def, uint nP)
    pO->phaseStride= n; // planar
 
    // if (interleaved) { pC->org.phaseStride= 1; for (int i=0; i<DIFF_DIM; i++) { pC->org.stride[i]*= nP } }
-
-   pO->step[0]= -pO->stride[0];
-   pO->step[1]=  pO->stride[0];
-   pO->step[2]= -pO->stride[1];
-   pO->step[3]=  pO->stride[1];
-   pO->step[4]= -pO->stride[2];
-   pO->step[5]=  pO->stride[2];
+   step6FromStride(pO->step, pO->stride);
 
    pO->n1P= pO->def.x * pO->def.y; // HACKY! check interleaving!
    pO->n1F= n;
    n*= pO->nPhase;
    pO->n1B= n;
    return(n > 0);
-} // initOrg
+} // initDiffOrg
 
 DiffScalar initIsoW (DiffScalar w[], DiffScalar r, uint nHood, uint f)
 {
@@ -191,3 +247,65 @@ DiffScalar initIsoW (DiffScalar w[], DiffScalar r, uint nHood, uint f)
    if (f & 1) { printf("initIsoW() - w[]= %G, %G, %G, %G\n", w[0], w[1], w[2], w[3]); }
    return(t);
 } // initIsoW
+
+size_t setDefaultMap (D3MapElem *pM, const V3I *pD)
+{
+   MapOrg org;
+   size_t n= initMapOrg(&org, pD);
+   const D3MapElem me= getMapElemV(org.def.x/2, org.def.y/2, org.def.z/2, &(org.mm));
+
+   for (size_t i=0; i < n; i++) { pM[i]= me; }
+   sealBoundaryMap(pM, &org);
+#if 1
+   size_t t= 0;
+   for (size_t i=0; i < n; i++) { t+= bitCountZ(pM[i] ^ me); }
+   printf("setDefaultMap() - %zu\n",t);
+#endif
+   return(n);
+} // setDefaultMap
+
+size_t d2I3 (int dx, int dy, int dz) { return( dx*dx + dy*dy + dz*dz ); }
+
+size_t mapFromU8Raw (D3MapElem *pM, MapInfo *pMI, const MemBuff *pWS, const char *path, U8 t, const DiffOrg *pO)
+{
+   size_t bytes= fileSize(path);
+   char m;
+   MapOrg org;
+   size_t n= initMapOrg(&org, &(pO->def));
+
+   bytes= loadBuff(pWS->p, path, MIN(bytes, pWS->bytes));
+   printf("mapFromU8Raw() - %G%cBytes\n", binSize(&m, bytes), m);
+   if (bytes >= n)
+   {
+      size_t r=-1, o= map26TransferU8(pM, pWS->p, n, t);
+
+      if (pMI)
+      {
+         V3I i, c, m;
+         size_t r= -1;
+         c.x= org.def.x / 2;
+         c.y= org.def.y / 2;
+         c.z= org.def.z / 2;
+         pMI->m= c;
+
+         i.z= c.z;
+         for (i.y=org.mm.min.y; i.y < org.mm.max.y; i.y++)
+         {
+            for (i.x=org.mm.min.x; i.x < org.mm.max.x; i.x++)
+            {
+               const size_t j= i.x * org.stride[0] + i.y * org.stride[1] + i.z * org.stride[2];
+               if (0 != pM[j])
+               {
+                  size_t d= d2I3( i.x - c.x, i.y - c.y, i.z - c.z );
+                  if (d < r) { r= d; pMI->m= i; }
+               }
+            }
+         }
+      }
+
+      sealBoundaryMap(pM, &org);
+      adjustMap26(pM, &org);
+      return(n);
+   }
+   return(0);
+} // mapFromU8Raw

@@ -21,9 +21,6 @@ const DiffScalar gM= 1.0;
 
 /***/
 
-
-
-
 void analyse (const DiffScalar * pS1, const DiffScalar * pS2, const int phase, const DiffOrg *pO)
 {
    // HACKY! may break for multi-phase
@@ -37,10 +34,9 @@ void analyse (const DiffScalar * pS1, const DiffScalar * pS2, const int phase, c
    saveSliceRGB("rgb/diff.rgb", gCtx.ws.p, 0, pO->def.z / 2, &(gCtx.org), NULL);
 } // analyse
 
-
 Bool32 init (DiffTestContext *pC, uint def)
 {
-   if (initOrg(&(pC->org), def, 1))
+   if (initDiffOrg(&(pC->org), def, 1))
    {
       size_t b1M= pC->org.n1F * sizeof(*(pC->pM));
       size_t b1B= pC->org.n1B * sizeof(*(pC->pSR));
@@ -48,19 +44,11 @@ Bool32 init (DiffTestContext *pC, uint def)
       uint nB= 0;
 
       pC->pM= malloc(b1M);
-      if (pC->pM)
-      {
-         printf("pM: %p, %zuB, bndsum=%zu\n", pC->pM, b1M, setDefaultMap(pC->pM, &(pC->org.def)) );
-         nB++;
-      }
       pC->ws.bytes=  b1W; // 1<<28; ???
       pC->ws.p=  malloc(pC->ws.bytes);
-      if (nB > 0)
-      {
-         for (int i= 0; i<2; i++)
-            { pC->pSR[i]= malloc(b1B); nB+= (NULL != pC->pSR[i]); }
-      }
-      return(3 == nB);
+      for (int i= 0; i<2; i++)
+         { pC->pSR[i]= malloc(b1B); nB+= (NULL != pC->pSR[i]); }
+      return(2 == nB);
    }
    return(0);
 } // init
@@ -120,13 +108,13 @@ typedef struct
    SearchResult  sr;
 } Test1Res;
 
-uint test1 (Test1Res *pR, const Test1Param *pP)
+uint test1 (Test1Res *pR, const Test1Param *pP, const MapInfo *pMI)
 {
    uint iT=0, iN= 0, iA= 0;
 
    if (initIsoW(gCtx.wPhase[0].w, pP->rD, pP->nHood, 0) > 0)
    {
-      defFields(gCtx.pSR[0], &(gCtx.org), gM);
+      defFields(gCtx.pSR[0], &(gCtx.org), gM, &(pMI->m));
       deltaT();
       iT= diffProcIsoD3SxM(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), gCtx.wPhase, gCtx.pM, pP->iter, pP->nHood);
       pR->tProc= deltaT();
@@ -168,7 +156,10 @@ int main (int argc, char *argv[])
       U8 nHoods[4]={6,14,18,26};
       Test1Param param;
       Test1Res   res[4][5], *pR;
+      MapInfo mi;
 
+      //setDefaultMap(gCtx.pM, &(gCtx.org.def));
+      mapFromU8Raw(gCtx.pM, &mi, &(gCtx.ws), "s(256,256,256)u8.raw", 112, &(gCtx.org));
       //test(&(gCtx.org));
       //pragma acc set device_type(acc_device_none)
       //initW(gCtx.wPhase[0].w, 0.5, 6, 0); // ***M8***
@@ -182,7 +173,7 @@ int main (int argc, char *argv[])
          for (int i=20; i<=100; i+= 20)
          {
             param.iter=  i;
-            iT= test1(pR, &param);
+            iT= test1(pR, &param, &mi);
             if (100 == iT)
             {
                MMSMVal mm;

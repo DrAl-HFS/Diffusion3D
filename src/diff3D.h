@@ -81,6 +81,8 @@ uint diffProcIsoD3SxM
    const uint nHood
 );
 
+extern void diffSet6To26 (Stride s26[]);
+
 extern void test (const DiffOrg * pO);
 
 #endif // DIFF_3D_H

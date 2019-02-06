@@ -8,14 +8,17 @@
 #include "diff3D.h"
 
 typedef struct { V3I min, max; } MMV3I;
+typedef struct { V3I m; } MapInfo;
 
 
 /***/
 
-extern size_t setDefaultMap (D3MapElem *pM, const V3I *pD);
-
-extern Bool32 initOrg (DiffOrg *pO, uint def, uint nP);
+extern Bool32 initDiffOrg (DiffOrg *pO, uint def, uint nP);
 
 extern DiffScalar initIsoW (DiffScalar w[], DiffScalar r, uint nHood, uint f);
+
+extern size_t setDefaultMap (D3MapElem *pM, const V3I *pD);
+
+extern size_t mapFromU8Raw (D3MapElem *pM, MapInfo *pMI, const MemBuff *pWS, const char *path, U8 t, const DiffOrg *pO);
 
 #endif // DIFF_3D_UTIL_H

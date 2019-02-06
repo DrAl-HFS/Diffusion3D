@@ -163,19 +163,20 @@ void procD3S6M
    #pragma acc data present( pR[:pO->n1B], pS[:pO->n1B], pO[:1], pW[:pO->nPhase], pM[:pO->n1F] )
    { // collapse(2) -> 20*slower!?
       #pragma acc parallel loop
-      for (Index z=0; z < pO->def.z; z++)
+      for (Index z= 0; z < pO->def.z; z++)
       {
-         for (Index y=0; y < pO->def.y; y++)
+         for (Index y= 0; y < pO->def.y; y++)
          {
             #pragma acc loop vector
-            for (Index x=0; x < pO->def.x; x++)
+            for (Index x= 0; x < pO->def.x; x++)
             {
                const uint m= pM[x + pO->def.x * (y + (size_t) pO->def.y * z) ];
                if (0 != m)
                {
                   const size_t i= x * pO->stride[0] + y * pO->stride[1] + z * pO->stride[2];
-                  Stride s6m[18];
+                  Stride s6m[6];
                   setS6M(s6m, pO->step, m);
+                  //for (int i=0; i<6; i++) { printf("%d\n", s6m[i]); }
                   for (int phase= 0; phase < pO->nPhase; phase++)
                   {
                      size_t j= i + phase * pO->phaseStride;
@@ -202,12 +203,12 @@ void procD3S14M
    #pragma acc data present( pR[:pO->n1B], pS[:pO->n1B], pO[:1], pW[:pO->nPhase], pM[:pO->n1F] )
    {
       #pragma acc parallel loop
-      for (Index z=0; z < pO->def.z; z++)
+      for (Index z= 0; z < pO->def.z; z++)
       {
-         for (Index y=0; y < pO->def.y; y++)
+         for (Index y= 0; y < pO->def.y; y++)
          {
             #pragma acc loop vector
-            for (Index x=0; x < pO->def.x; x++)
+            for (Index x= 0; x < pO->def.x; x++)
             {
                const uint m= pM[x + pO->def.x * (y + (size_t) pO->def.y * z) ];
                if (0 != m)
@@ -241,12 +242,12 @@ void procD3S18M
    #pragma acc data present( pR[:pO->n1B], pS[:pO->n1B], pO[:1], pW[:pO->nPhase], pM[:pO->n1F] )
    {
       #pragma acc parallel loop
-      for (Index z=0; z < pO->def.z; z++)
+      for (Index z= 0; z < pO->def.z; z++)
       {
-         for (Index y=0; y < pO->def.y; y++)
+         for (Index y= 0; y < pO->def.y; y++)
          {
             #pragma acc loop vector
-            for (Index x=0; x < pO->def.x; x++)
+            for (Index x= 0; x < pO->def.x; x++)
             {
                const uint m= pM[x + pO->def.x * (y + (size_t) pO->def.y * z) ];
                if (0 != m)
@@ -280,12 +281,12 @@ void procD3S26M
    #pragma acc data present( pR[:pO->n1B], pS[:pO->n1B], pO[:1], pW[:pO->nPhase], pM[:pO->n1F] )
    {
       #pragma acc parallel loop
-      for (Index z=0; z < pO->def.z; z++)
+      for (Index z= 0; z < pO->def.z; z++)
       {
-         for (Index y=0; y < pO->def.y; y++)
+         for (Index y= 0; y < pO->def.y; y++)
          {
             #pragma acc loop vector
-            for (Index x=0; x < pO->def.x; x++)
+            for (Index x= 0; x < pO->def.x; x++)
             {
                const uint m= pM[x + pO->def.x * (y + (size_t) pO->def.y * z) ];
                if (0 != m)
@@ -319,12 +320,12 @@ void procD3S6M8
    #pragma acc data present( pR[:pO->n1B], pS[:pO->n1B], pO[:1], pW[:pO->nPhase], pM[:pO->n1F] )
    {
       #pragma acc parallel loop
-      for (Index z=0; z < pO->def.z; z++)
+      for (Index z= 0; z < pO->def.z; z++)
       {
-         for (Index y=0; y < pO->def.y; y++)
+         for (Index y= 0; y < pO->def.y; y++)
          {
             #pragma acc loop vector
-            for (Index x=0; x < pO->def.x; x++)
+            for (Index x= 0; x < pO->def.x; x++)
             {
                const uint m= pM[x + pO->def.x * (y + (size_t) pO->def.y * z) ];
                if (0 != m)
@@ -438,6 +439,12 @@ uint diffProcIsoD3SxM
    }
    return(i);
 } // diffProcIsoD3SxM
+
+void diffSet6To26 (Stride s26[])
+{
+   setS12M(s26+6, s26, 0xFFF);
+   setS8M(s26+18, s26, 0xFF);
+} // diffSet6To26
 
 void test (const DiffOrg * pO)
 {

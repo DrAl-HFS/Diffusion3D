@@ -81,6 +81,10 @@ extern size_t saveBuff (const void * const pB, const char * const path, const si
 extern SMVal deltaT (void);
 
 extern void statAddW (const StatMom * const pS, const SMVal v, const SMVal w);
-extern U32 statGetRes1 (StatRes1 * const pR, const StatMom * const pS, const SMVal dof);
+extern uint statGetRes1 (StatRes1 * const pR, const StatMom * const pS, const SMVal dof);
+
+extern float binSize (char *pCh, size_t s);
+
+extern uint bitCountZ (size_t u);
 
 #endif // UTIL_H

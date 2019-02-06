@@ -17,7 +17,7 @@ typedef struct
 
 /***/
 
-extern void defFields (DiffScalar * pS, const DiffOrg *pO, DiffScalar v);
+extern void defFields (DiffScalar * pS, const DiffOrg *pO, DiffScalar v, const V3I *pM);
 
 extern float d2F3 (float dx, float dy, float dz);
 extern float setDiffIsoK (DiffScalar k[2], const DiffScalar Dt, const uint dim);

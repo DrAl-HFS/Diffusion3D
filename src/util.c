@@ -91,10 +91,10 @@ void statAddW (const StatMom * const pS, const SMVal v, const SMVal w)
    pS->m[2]+= v * v * w;
 } // statAddW
 
-U32 statGetRes1 (StatRes1 * const pR, const StatMom * const pS, const SMVal dof)
+uint statGetRes1 (StatRes1 * const pR, const StatMom * const pS, const SMVal dof)
 {
    StatRes1 r={ 0, 0 };
-   U32 o= 0;
+   uint o= 0;
    if (pS && (pS->m[0] > 0))
    {
       r.m= pS->m[1] / pS->m[0];
@@ -109,6 +109,34 @@ U32 statGetRes1 (StatRes1 * const pR, const StatMom * const pS, const SMVal dof)
    if (pR) { *pR= r; }
    return(o);
 } // statGetRes1
+
+float binSize (char *pCh, const size_t s)
+{
+static const char m[]=" KMGTEP";
+   int i=0;
+   while ((i < 6) && (s > (1 << (10 * (i+1))))) { ++i; }
+   *pCh= m[i];
+   return( (float)s / (1 << (10 * i)) );
+} // binSize
+
+uint bitCountZ (size_t u)
+{
+static const U8 n4b[]=
+{
+   0, 1, 1, 2, // 0000 0001 0010 0011
+   1, 2, 2, 3, // 0100 0101 0110 0111
+   1, 2, 2, 3, // 1000 1001 1010 1011
+   2, 3, 3, 4  // 1100 1101 1110 1111
+};
+	uint	c=0;
+
+	do
+	{
+		c+= n4b[ u & 0xF ] + n4b[ (u >> 4) & 0xF ] + n4b[ (u >> 8) & 0xF ] + n4b[ (u >> 12) & 0xF ];
+		u>>=	16;
+	} while (u > 0);
+	return(c);
+} // bitCountZ
 
 
 #ifdef UTIL_TEST

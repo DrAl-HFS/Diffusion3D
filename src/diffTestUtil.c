@@ -11,17 +11,15 @@ const float gEpsilon= 1.0 / (1<<30);
 
 /***/
 
-void defFields (DiffScalar * pS, const DiffOrg *pO, DiffScalar v) // v[])
+void defFields (DiffScalar * pS, const DiffOrg *pO, DiffScalar v, const V3I *pM) // v[])
 {
    const size_t b1B= pO->n1B * sizeof(*pS);
    size_t i;
-   V3I c;
    uint phase;
 
    memset(pS, 0, b1B);
 
-   c.x= pO->def.x/2; c.y= pO->def.y/2; c.z= pO->def.z/2;
-   i= c.x * pO->stride[0] + c.y * pO->stride[1] + c.z * pO->stride[2];
+   i= pM->x * pO->stride[0] + pM->y * pO->stride[1] + pM->z * pO->stride[2];
    phase= 0;
    do
    {
