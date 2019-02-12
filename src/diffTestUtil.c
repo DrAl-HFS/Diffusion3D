@@ -11,22 +11,13 @@ const float gEpsilon= 1.0 / (1<<30);
 
 /***/
 
-void defFields (DiffScalar * pS, const DiffOrg *pO, DiffScalar v, const V3I *pM) // v[])
+void initFieldVC (DiffScalar * pS, const DiffOrg *pO, DiffScalar v, const V3I *pC)
 {
-   const size_t b1B= pO->n1B * sizeof(*pS);
-   size_t i;
-   uint phase;
+   memset(pS, 0, pO->n1B * sizeof(*pS));
 
-   memset(pS, 0, b1B);
-
-   i= pM->x * pO->stride[0] + pM->y * pO->stride[1] + pM->z * pO->stride[2];
-   phase= 0;
-   do
-   {
-      pS[i]= v;//[phase];
-      i+= pO->phaseStride;
-   } while (++phase < pO->nPhase);
-} // defFields
+   const size_t i= pC->x * pO->stride[0] + pC->y * pO->stride[1] + pC->z * pO->stride[2];
+   pS[i]= v;
+} // initFieldVC
 
 float d2F3 (float dx, float dy, float dz) { return( dx*dx + dy*dy + dz*dz ); }
 
@@ -56,17 +47,18 @@ static DiffScalar compareAnalyticP (DiffScalar * restrict pTR, const DiffScalar 
    #pragma acc data present( pTR[:pO->n1P], pS[:pO->n1F], pO[:1] ) \
                      copyin( k[:2], v, c )
    {
+      #pragma acc loop seq
       for (Index z=0; z < pO->def.z; z++)
       {
-         #pragma acc parallel loop
+         #pragma acc parallel loop 
          for (Index y=0; y < pO->def.y; y++)
          {
             #pragma acc loop vector
             for (Index x=0; x < pO->def.x; x++)
             {
-               float r2= d2F3( x - c.x, y - c.y, z - c.z );
-               DiffScalar w= v * k[0] * exp(r2 * k[1]);
-               size_t j= x * pO->stride[0] + y * pO->stride[1] + z * pO->stride[2];
+               const float r2= d2F3( x - c.x, y - c.y, z - c.z );
+               const DiffScalar w= v * k[0] * exp(r2 * k[1]);
+               const size_t j= x * pO->stride[0] + y * pO->stride[1] + z * pO->stride[2];
                pTR[x + y * pO->def.x]+= fabs(pS[j] - w);
             }
          }
@@ -84,7 +76,7 @@ static DiffScalar compareAnalyticP (DiffScalar * restrict pTR, const DiffScalar 
 DiffScalar compareAnalytic (DiffScalar * restrict pTR, const DiffScalar * pS, const DiffOrg *pO, const DiffScalar v, const DiffScalar Dt)
 {
    DiffScalar sad;
-   #pragma acc data create( pTR[:pO->n1P] ) copyin( pS[:pO->n1F], pO[:1] )
+   #pragma acc data present_or_create( pTR[:pO->n1P] ) copyin( pS[:pO->n1F], pO[:1] ) copyout( pTR[:pO->n1P] )
    {
       sad= compareAnalyticP(pTR,pS,pO,v,Dt);
    }
@@ -123,10 +115,8 @@ DiffScalar initAnalytic (DiffScalar * pR, const DiffOrg *pO, const DiffScalar v,
 
 DiffScalar analyseField (StatRes1 r[3], const DiffScalar * pS, const DiffOrg *pO)
 {
-   StatMom sm[3]={0,};
+   StatMom3 sm3={0,};
    DiffScalar tv=0;
-
-   memset(sm, 0, sizeof(StatMom)*3);
 
    for (Index z=0; z < pO->def.z; z++)
    {
@@ -135,49 +125,45 @@ DiffScalar analyseField (StatRes1 r[3], const DiffScalar * pS, const DiffOrg *pO
          for (Index x=0; x < pO->def.x; x++)
          {
             const size_t i= x * pO->stride[0] + y * pO->stride[1] + z * pO->stride[2];
-            const DiffScalar w= pS[i];
-            //float r2= d2F3( x - c.x, y - c.y, z - c.z );
-            statAddW(sm+0, x, w);
-            statAddW(sm+1, y, w);
-            statAddW(sm+2, z, w);
+            statMom3AddW(&sm3, x, y, z, pS[i]);
          }
       }
    }
-   for (int i=0; i<3; i++) { statGetRes1(r+i, sm+i, 0); tv+= r[i].v; }
-   return(tv / 3);
+   statMom3Res1(r, &sm3, 0);
+   return((r[0].v + r[1].v + r[2].v) / 3);
 } // analyseField
 
-size_t saveSliceRGB (const char path[], const DiffScalar * pS, const uint phase, const uint z, const DiffOrg *pO, const MMSMVal *pMM)
+size_t saveSliceRGB (const char path[], const DiffScalar * pS, const uint z, const DiffOrg *pO, const MMSMVal *pMM)
 {
-   if ((phase < pO->nPhase) && (z < pO->def.z))
+   if (z < pO->def.z)
    {
       unsigned char *pB;
-      const size_t n1P= pO->def.x * pO->def.y;
-      size_t nB= n1P * 3;
+      size_t nB= pO->n1P * 3;
       pB= malloc(nB);
       if (pB)
       {
-         MMSMVal mm, rmm;
+         MMSMVal mm, rmm={1,1};
 
-         pS+= phase * pO->phaseStride + z * pO->stride[2];
          if (NULL == pMM)
          {
-            for (size_t i=0; i < n1P; i++)
+            mm.vMin= mm.vMax= pS[0];
+            for (size_t i=1; i < pO->n1P; i++)
             {
                size_t j= i * pO->stride[0];
                mm.vMin= fmin(mm.vMin, pS[j]);
                mm.vMax= fmax(mm.vMax, pS[j]);
             }
+            printf("saveSliceRGB() - mm=%G,%G\n",mm.vMin,mm.vMax);
             pMM= &mm;
          }
          if (0 != pMM->vMin) { rmm.vMin= 1.0 / pMM->vMin; }
          if (0 != pMM->vMax) { rmm.vMax= 1.0 / pMM->vMax; }
-         for (size_t i=0; i < n1P; i++)
+         for (size_t i=0; i < pO->n1P; i++)
          {
             size_t j= i * pO->stride[0];
             size_t k= i * 3;
             unsigned char r= 0, g=0, b= 0;
-            if (pS[j] > gEpsilon)
+            if (pS[j] > 0) //gEpsilon)
             {
                float t= rmm.vMax * pS[j];
                g= 0x00 + t * 0xF0;
@@ -194,103 +180,15 @@ size_t saveSliceRGB (const char path[], const DiffScalar * pS, const uint phase,
             pB[k+1]= g;
             pB[k+2]= b;
          }
+         //pB[0]= pB[1]= pB[2]= 0xFF;
          nB= saveBuff(pB, path, nB);
-         printf("saveSliceRGB(%s ) - %zu bytes\n", path, nB);
+         printf("saveSliceRGB(%s) - %zu bytes\n", path, nB);
          free(pB);
          return(nB);
       }
    }
    return(0);
 } // saveSliceRGB
-
-DiffScalar sumStrideNS (const DiffScalar * pS, const size_t n, const Stride s)
-{
-   DiffScalar sum= 0;
-   for (size_t i=0; i<n; i++) { sum+= pS[i * s]; }
-   return(sum);
-} // sumStrideNS
-
-DiffScalar sumField (const DiffScalar * pS, const int phase, const DiffOrg *pO) // v[])
-{
-   if (phase < pO->nPhase) { return sumStrideNS(pS + pO->n1F * phase, pO->n1F, pO->stride[0]); }
-   return(0);
-} // size_t
-
-SMVal diffStrideNS (DiffScalar * pR, const DiffScalar * pS1, const DiffScalar * pS2, const size_t n, const Stride sr12)
-{
-   StatMom  mom={0,0,0};
-   StatRes1 sr={0,0};
-   SMVal    sad=0;
-
-   if (pR)
-   {
-      for (size_t i=0; i<n; i++)
-      {
-         DiffScalar s= pS1[i * sr12] + pS2[i * sr12]; 
-         DiffScalar d= pS1[i * sr12] - pS2[i * sr12]; 
-         pR[i]= d;
-         sad+= fabs(d);
-         if (0 != s)
-         {
-            mom.m[0]+= 1;
-            mom.m[1]+= d;
-            mom.m[2]+= d * d;
-         }
-      }
-   }
-   else
-   {
-      for (size_t i=0; i<n; i++)
-      {
-         DiffScalar s= pS1[i * sr12] + pS2[i * sr12]; 
-         DiffScalar d= pS1[i * sr12] - pS2[i * sr12]; 
-         sad+= fabs(d);
-         if (0 != s)
-         {
-            mom.m[0]+= 1;
-            mom.m[1]+= d;
-            mom.m[2]+= d * d;
-         }
-      }
-   }
-   
-   if (statGetRes1(&sr, &mom, 1))
-   {
-      printf("diffStrideNS() - n,sum,sumSqr,mean,var= %G, %G, %G, %G, %G\n", mom.m[0], mom.m[1], mom.m[2], sr.m, sr.v);
-   }
-   return(sad);
-} // diffStrideNS
-
-SMVal relDiffStrideNS (DiffScalar * pR, const DiffScalar * pS1, const DiffScalar * pS2, const size_t n, const Stride sr12)
-{
-   StatMom  mom={0,0,0};
-   StatRes1 sr={0,0};
-   SMVal    sad=0;
-
-   for (size_t i=0; i<n; i++)
-   {
-      DiffScalar s1= pS1[i * sr12]; 
-      DiffScalar s2= pS2[i * sr12]; 
-      DiffScalar s= s1 + s2; 
-      DiffScalar d= s1 - s2; 
-      DiffScalar rd= 0;
-      sad+= fabs(d);
-      if (0 != s)
-      {
-         rd= (pS1[i * sr12] - s2) / s2;
-         mom.m[0]+= 1;
-         mom.m[1]+= d;
-         mom.m[2]+= d * d;
-      }
-      pR[i]= rd;
-   }
-   if (statGetRes1(&sr, &mom, 1))
-   {
-      printf("diffStrideNS() - n,sum,sumSqr,mean,var= %G, %G, %G, %G, %G\n", mom.m[0], mom.m[1], mom.m[2], sr.m, sr.v);
-   }
-   return(sad);
-} // relDiffStrideNS
-
 
 DiffScalar searchMin1 
 (
@@ -344,13 +242,13 @@ DiffScalar searchMin1
    return(min[0].x);
 } // searchMin1
 
-// Simple "flattened" reduction - let the compiler figure it out...
-static void reductF (RedRes * pR, const DiffScalar * const pS, const size_t n)
+// Full 1D -> 0D reduction
+static void reduct1F0 (RedRes * pR, const DiffScalar * const pS, const size_t n)
 {
    SMVal sum, vMin, vMax; // =0, vMin=1E34, vMax=-1E34;
 
    sum= vMin= vMax= *pS;
-   #pragma acc data present( pS[:n] ) copy( n, sum, vMin, vMax )
+   #pragma acc data present( pS[:n] ) copy( sum, vMin, vMax ) // n ???
    {
       #pragma acc parallel reduction(+: sum )
       for (size_t i=1; i < n; i++) { sum+= pS[i]; }
@@ -362,13 +260,50 @@ static void reductF (RedRes * pR, const DiffScalar * const pS, const size_t n)
    pR->sum= sum;
    pR->mm.vMin= vMin;
    pR->mm.vMax= vMax;
-} // reductF
+} // reduct0F1
 
-void reducto (RedRes * pR, const DiffScalar * const pS, const size_t n)
+// Partial 3D -> 2D reduction
+static void reduct3P2 (DiffScalar * restrict pTR, const DiffScalar * const pS, const DiffOrg *pO)
+{
+   #pragma acc data present( pTR[:pO->n1P], pO[:1] )
+   {
+      #pragma acc parallel loop vector
+      for (Index i=0; i < pO->n1P; i++) { pTR[i]= 0; }
+   }
+
+   #pragma acc data present( pTR[:pO->n1P], pS[:pO->n1F], pO[:1] )
+   {
+      #pragma acc loop seq
+      for (Index z=0; z < pO->def.z; z++)
+      {
+         #pragma acc parallel loop 
+         for (Index y=0; y < pO->def.y; y++)
+         {
+            #pragma acc loop vector
+            for (Index x=0; x < pO->def.x; x++)
+            {
+               const size_t j= x * pO->stride[0] + y * pO->stride[1] + z * pO->stride[2];
+               pTR[x + y * pO->def.x]+= pS[j];
+            }
+         }
+      }
+   }
+} // reduct3P2
+
+void reduct0 (RedRes * pR, const DiffScalar * const pS, const size_t n)
 {
    #pragma acc data present_or_copyin( pS[:n] )
-   reductF(pR,pS,n);
-} // reducto
+   reduct1F0(pR,pS,n);
+} // reduct0
+
+void reduct3_2_0 (RedRes * pR, DiffScalar * restrict pTR, const DiffScalar * const pS, const DiffOrg *pO)
+{
+   #pragma acc data present_or_create( pTR[:pO->n1P] ) present_or_copyin( pS[:pO->n1F], pO[:1] ) copyout( pTR[:pO->n1P] )
+   {
+      reduct3P2(pTR, pS, pO);
+      reduct1F0(pR, pTR, pO->n1P);
+   }
+} // reduct3_2_0
 
 // DEPRECATE
 DiffScalar searchNewton (const MemBuff * pWS, const DiffScalar *pS, const DiffOrg *pO, const DiffScalar ma, const DiffScalar estDt)
@@ -407,3 +342,103 @@ DiffScalar searchNewton (const MemBuff * pWS, const DiffScalar *pS, const DiffOr
    printf(": %G %G\n", min.x, min.y);
    return(min.x);
 } // searchNewton
+/*
+DiffScalar sumStrideNS (const DiffScalar * pS, const size_t n, const Stride s)
+{
+   DiffScalar sum= 0;
+   for (size_t i=0; i<n; i++) { sum+= pS[i * s]; }
+   return(sum);
+} // sumStrideNS
+
+DiffScalar sumField (const DiffScalar * pS, const int phase, const DiffOrg *pO) // v[])
+{
+   if (phase < pO->nPhase) { return sumStrideNS(pS + pO->n1F * phase, pO->n1F, pO->stride[0]); }
+   return(0);
+} // size_t
+
+SMVal diffStrideNS (DiffScalar * pR, const DiffScalar * pS1, const DiffScalar * pS2, const size_t n, const Stride sr12)
+{
+   StatMom1 mom={0,0,0};
+   StatRes1 sr={0,0};
+   SMVal    sad=0;
+
+   if (pR)
+   {
+      for (size_t i=0; i<n; i++)
+      {
+         DiffScalar s= pS1[i * sr12] + pS2[i * sr12]; 
+         DiffScalar d= pS1[i * sr12] - pS2[i * sr12]; 
+         pR[i]= d;
+         sad+= fabs(d);
+         if (0 != s)
+         {
+            mom.m[0]+= 1;
+            mom.m[1]+= d;
+            mom.m[2]+= d * d;
+         }
+      }
+   }
+   else
+   {
+      for (size_t i=0; i<n; i++)
+      {
+         DiffScalar s= pS1[i * sr12] + pS2[i * sr12]; 
+         DiffScalar d= pS1[i * sr12] - pS2[i * sr12]; 
+         sad+= fabs(d);
+         if (0 != s)
+         {
+            mom.m[0]+= 1;
+            mom.m[1]+= d;
+            mom.m[2]+= d * d;
+         }
+      }
+   }
+   
+   if (statMom1Res1(&sr, &mom, 1))
+   {
+      printf("diffStrideNS() - n,sum,sumSqr,mean,var= %G, %G, %G, %G, %G\n", mom.m[0], mom.m[1], mom.m[2], sr.m, sr.v);
+   }
+   return(sad);
+} // diffStrideNS
+
+SMVal relDiffStrideNS (DiffScalar * pR, const DiffScalar * pS1, const DiffScalar * pS2, const size_t n, const Stride sr12)
+{
+   StatMom1 mom={0,0,0};
+   StatRes1 sr={0,0};
+   SMVal    sad=0;
+
+   for (size_t i=0; i<n; i++)
+   {
+      DiffScalar s1= pS1[i * sr12]; 
+      DiffScalar s2= pS2[i * sr12]; 
+      DiffScalar s= s1 + s2; 
+      DiffScalar d= s1 - s2; 
+      DiffScalar rd= 0;
+      sad+= fabs(d);
+      if (0 != s)
+      {
+         rd= (pS1[i * sr12] - s2) / s2;
+         mom.m[0]+= 1;
+         mom.m[1]+= d;
+         mom.m[2]+= d * d;
+      }
+      pR[i]= rd;
+   }
+   if (statMom1Res1(&sr, &mom, 1))
+   {
+      printf("diffStrideNS() - n,sum,sumSqr,mean,var= %G, %G, %G, %G, %G\n", mom.m[0], mom.m[1], mom.m[2], sr.m, sr.v);
+   }
+   return(sad);
+} // relDiffStrideNS
+*/
+
+void dumpM6 (uint m6, const char *e)
+{
+   char a[]="XYZ";
+   char s[]="-+";
+   for (int i= 0; i < 6; i++)
+   {
+      if (m6 & (1<<i)) { printf("%c%c ", s[i&1], a[i>>1] ); } else { printf("   "); }
+   }
+   if (e) { printf("%s", e); }
+} // dumpM6

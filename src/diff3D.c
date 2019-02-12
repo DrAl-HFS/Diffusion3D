@@ -22,7 +22,6 @@ typedef uint (*DiffProcIsoMapFuncPtr)
 
 INLINE void setS6M (Stride s6m[], const Stride step[], const uint m)
 {
-   //for (int i=0; i<DIFF_DIR; i++) { s[i]= ((1<<i) & m) ? pO->wraps6[i] : 0; }
    s6m[0]= (0x01 & m) ? step[0] : 0; // -X
    s6m[1]= (0x02 & m) ? step[1] : 0; // +X
    s6m[2]= (0x04 & m) ? step[2] : 0; // -Y
@@ -32,8 +31,7 @@ INLINE void setS6M (Stride s6m[], const Stride step[], const uint m)
 } // setS6M
 
 INLINE void setS12M (Stride s12m[], const Stride step[], const uint m)
-{
-   //for (int i=0; i<DIFF_DIR; i++) { s[i]= ((1<<i) & m) ? pO->wraps8[i] : 0; }
+{  // NEED ORDERING BY OPPOSING PAIRS FOR EFFICIENT NEIGHBOUR PROCESSING!
    s12m[0]= (0x001 & m) ? (step[0] + step[2]) : 0; // -X -Y
    s12m[1]= (0x002 & m) ? (step[0] + step[3]) : 0; // -X +Y
    s12m[2]= (0x004 & m) ? (step[1] + step[2]) : 0; // +X -Y
@@ -51,8 +49,7 @@ INLINE void setS12M (Stride s12m[], const Stride step[], const uint m)
 } // setS12M
 
 INLINE void setS8M (Stride s8m[], const Stride step[], const uint m)
-{
-   //for (int i=0; i<DIFF_DIR; i++) { s[i]= ((1<<i) & m) ? pO->wraps8[i] : 0; }
+{  // NEED ORDERING BY OPPOSING PAIRS FOR EFFICIENT NEIGHBOUR PROCESSING!
    s8m[0]= (0x01 & m) ? step[0] + step[2] + step[4] : 0; // -X -Y -Z
    s8m[1]= (0x02 & m) ? step[0] + step[2] + step[5] : 0; // -X -Y +Z
    s8m[2]= (0x04 & m) ? step[0] + step[3] + step[5] : 0; // -X +Y +Z

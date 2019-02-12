@@ -84,14 +84,28 @@ SMVal deltaT (void)
    return(dt);
 } // deltaT
 
-void statAddW (const StatMom * const pS, const SMVal v, const SMVal w)
+void statMom1AddW (StatMom1 * const pS, const SMVal v, const SMVal w)
 {
    pS->m[0]+= w;
    pS->m[1]+= v * w;
    pS->m[2]+= v * v * w;
-} // statAddW
+} // statMom1AddW
 
-uint statGetRes1 (StatRes1 * const pR, const StatMom * const pS, const SMVal dof)
+void statMom3AddW (StatMom3 * const pS, const SMVal x, const SMVal y, const SMVal z, const SMVal w)
+{
+   pS->m0+= w;
+   pS->m1[0]+= x * w;
+   pS->m1[1]+= y * w;
+   pS->m1[2]+= z * w;
+   pS->m2[0]+= x * x * w;
+   pS->m2[1]+= y * y * w;
+   pS->m2[2]+= z * z * w;
+   pS->m2[3]+= x * y * w;
+   pS->m2[4]+= x * z * w;
+   pS->m2[5]+= y * x * w;
+} // statMom3AddW
+
+uint statMom1Res1 (StatRes1 * const pR, const StatMom1 * const pS, const SMVal dof)
 {
    StatRes1 r={ 0, 0 };
    uint o= 0;
@@ -108,7 +122,27 @@ uint statGetRes1 (StatRes1 * const pR, const StatMom * const pS, const SMVal dof
    }
    if (pR) { *pR= r; }
    return(o);
-} // statGetRes1
+} // statMom1Res1
+
+uint statMom3Res1 (StatRes1 r[3], const StatMom3 * const pS, const SMVal dof)
+{
+   uint o= 0;
+   if (pS && (pS->m0 > 0))
+   {
+      for (int i= 0; i < 3; i++) { r[i].m= pS->m1[i] / pS->m0; }
+      ++o;
+      if (pS->m0 != dof)
+      { 
+         //SMVal ess= (pS->m[1] * pS->m[1]) / pS->m[0];
+         for (int i= 0; i < 3; i++)
+         { 
+            r[i].v= ( pS->m2[i] - (pS->m1[i] * r[i].m) ) / (pS->m0 - dof);
+         }
+         ++o;
+      }
+   }
+   return(o);
+} // statMom3Res1
 
 float binSize (char *pCh, const size_t s)
 {

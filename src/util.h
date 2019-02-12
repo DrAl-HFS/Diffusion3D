@@ -53,7 +53,17 @@ typedef struct { SMVal vMin, vMax; } MMSMVal;
 typedef struct
 {
    SMVal    m[3];
-} StatMom;
+} StatMom1;
+
+typedef struct
+{
+   SMVal m0, m1[2], m2[4];
+} StatMom2;
+
+typedef struct
+{
+   SMVal m0, m1[3], m2[6];
+} StatMom3;
 
 typedef struct
 {
@@ -80,8 +90,10 @@ extern size_t saveBuff (const void * const pB, const char * const path, const si
 
 extern SMVal deltaT (void);
 
-extern void statAddW (const StatMom * const pS, const SMVal v, const SMVal w);
-extern uint statGetRes1 (StatRes1 * const pR, const StatMom * const pS, const SMVal dof);
+extern void statMom1AddW (StatMom1 * const pS, const SMVal v, const SMVal w);
+extern void statMom3AddW (StatMom3 * const pS, const SMVal x, const SMVal y, const SMVal z, const SMVal w);
+extern uint statMom1Res1 (StatRes1 * const pR, const StatMom1 * const pS, const SMVal dof);
+extern uint statMom3Res1 (StatRes1 r[3], const StatMom3 * const pS, const SMVal dof);
 
 extern float binSize (char *pCh, size_t s);
 

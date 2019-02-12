@@ -17,7 +17,7 @@ typedef struct
 
 /***/
 
-extern void defFields (DiffScalar * pS, const DiffOrg *pO, DiffScalar v, const V3I *pM);
+extern void initFieldVC (DiffScalar * pS, const DiffOrg *pO, DiffScalar v, const V3I *pC);
 
 extern float d2F3 (float dx, float dy, float dz);
 extern float setDiffIsoK (DiffScalar k[2], const DiffScalar Dt, const uint dim);
@@ -26,12 +26,7 @@ extern DiffScalar compareAnalytic (DiffScalar * restrict pTR, const DiffScalar *
 extern DiffScalar initAnalytic (DiffScalar * pR, const DiffOrg *pO, const DiffScalar v, const DiffScalar Dt);
 extern DiffScalar analyseField (StatRes1 r[3], const DiffScalar * pS, const DiffOrg *pO);
 
-extern size_t saveSliceRGB (const char path[], const DiffScalar * pS, const uint phase, const uint z, const DiffOrg *pO, const MMSMVal *pMM);
-
-extern DiffScalar sumStrideNS (const DiffScalar * pS, const size_t n, const Stride s);
-extern DiffScalar sumField (const DiffScalar * pS, const int phase, const DiffOrg *pO);
-extern SMVal diffStrideNS (DiffScalar * pR, const DiffScalar * pS1, const DiffScalar * pS2, const size_t n, const Stride s);
-extern SMVal relDiffStrideNS (DiffScalar * pR, const DiffScalar * pS1, const DiffScalar * pS2, const size_t n, const Stride s);
+extern size_t saveSliceRGB (const char path[], const DiffScalar * pS, const uint z, const DiffOrg *pO, const MMSMVal *pMM);
 
 extern DiffScalar searchMin1 
 (
@@ -41,9 +36,19 @@ extern DiffScalar searchMin1
 );
 
 typedef struct { SMVal sum; MMSMVal mm; } RedRes;
-extern void reducto (RedRes * pR, const DiffScalar * const pS, const size_t n);
+extern void reduct0 (RedRes * pR, const DiffScalar * const pS, const size_t n);
+// Reduce field to plane, then plane to scalars
+extern void reduct3_2_0 (RedRes * pR, DiffScalar * restrict pTR, const DiffScalar * const pS, const DiffOrg *pO);
 
 // DEPRECATE
 extern DiffScalar searchNewton (const MemBuff * pWS, const DiffScalar *pS, const DiffOrg *pO, const DiffScalar ma, const DiffScalar estDt);
+/*
+extern DiffScalar sumStrideNS (const DiffScalar * pS, const size_t n, const Stride s);
+extern DiffScalar sumField (const DiffScalar * pS, const int phase, const DiffOrg *pO);
+extern SMVal diffStrideNS (DiffScalar * pR, const DiffScalar * pS1, const DiffScalar * pS2, const size_t n, const Stride s);
+extern SMVal relDiffStrideNS (DiffScalar * pR, const DiffScalar * pS1, const DiffScalar * pS2, const size_t n, const Stride s);
+*/
+
+extern void dumpM6 (uint m6, const char *e);
 
 #endif // DIFF_TEST_UTIL_H
