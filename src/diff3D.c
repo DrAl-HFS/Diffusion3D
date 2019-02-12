@@ -33,31 +33,31 @@ INLINE void setS6M (Stride s6m[], const Stride step[], const uint m)
 INLINE void setS12M (Stride s12m[], const Stride step[], const uint m)
 {  // NEED ORDERING BY OPPOSING PAIRS FOR EFFICIENT NEIGHBOUR PROCESSING!
    s12m[0]= (0x001 & m) ? (step[0] + step[2]) : 0; // -X -Y
-   s12m[1]= (0x002 & m) ? (step[0] + step[3]) : 0; // -X +Y
-   s12m[2]= (0x004 & m) ? (step[1] + step[2]) : 0; // +X -Y
-   s12m[3]= (0x008 & m) ? (step[1] + step[3]) : 0; // +X +Y
+   s12m[1]= (0x002 & m) ? (step[1] + step[3]) : 0; // +X +Y
+   s12m[2]= (0x004 & m) ? (step[0] + step[3]) : 0; // -X +Y
+   s12m[3]= (0x008 & m) ? (step[1] + step[2]) : 0; // +X -Y
 
    s12m[4]= (0x010 & m) ? (step[0] + step[4]) : 0; // -X -Z
-   s12m[5]= (0x020 & m) ? (step[0] + step[5]) : 0; // -X +Z
-   s12m[6]= (0x040 & m) ? (step[1] + step[4]) : 0; // +X -Z
-   s12m[7]= (0x080 & m) ? (step[1] + step[5]) : 0; // +X +Z
+   s12m[5]= (0x020 & m) ? (step[1] + step[5]) : 0; // +X +Z
+   s12m[6]= (0x040 & m) ? (step[0] + step[5]) : 0; // -X +Z
+   s12m[7]= (0x080 & m) ? (step[1] + step[4]) : 0; // +X -Z
 
    s12m[8]= (0x100 & m) ? (step[2] + step[4]) : 0; // -Y -Z
-   s12m[9]= (0x200 & m) ? (step[2] + step[5]) : 0; // -Y +Z
-   s12m[10]= (0x400 & m) ? (step[3] + step[4]) : 0; // +Y -Z
-   s12m[11]= (0x800 & m) ? (step[3] + step[5]) : 0; // +Y +Z
+   s12m[9]= (0x200 & m) ? (step[3] + step[5]) : 0; // +Y +Z
+   s12m[10]= (0x400 & m) ? (step[2] + step[5]) : 0; // -Y +Z
+   s12m[11]= (0x800 & m) ? (step[3] + step[4]) : 0; // +Y -Z
 } // setS12M
 
 INLINE void setS8M (Stride s8m[], const Stride step[], const uint m)
 {  // NEED ORDERING BY OPPOSING PAIRS FOR EFFICIENT NEIGHBOUR PROCESSING!
    s8m[0]= (0x01 & m) ? step[0] + step[2] + step[4] : 0; // -X -Y -Z
-   s8m[1]= (0x02 & m) ? step[0] + step[2] + step[5] : 0; // -X -Y +Z
-   s8m[2]= (0x04 & m) ? step[0] + step[3] + step[5] : 0; // -X +Y +Z
-   s8m[3]= (0x08 & m) ? step[0] + step[3] + step[4] : 0; // -X +Y -Z
-   s8m[4]= (0x10 & m) ? step[1] + step[2] + step[4] : 0; // +X -Y -Z
-   s8m[5]= (0x20 & m) ? step[1] + step[2] + step[5] : 0; // +X -Y +Z
-   s8m[6]= (0x40 & m) ? step[1] + step[3] + step[5] : 0; // +X +Y +Z
-   s8m[7]= (0x80 & m) ? step[1] + step[3] + step[4] : 0; // +X +Y -Z
+   s8m[1]= (0x02 & m) ? step[1] + step[3] + step[5] : 0; // +X +Y +Z
+   s8m[2]= (0x04 & m) ? step[0] + step[2] + step[5] : 0; // -X -Y +Z
+   s8m[3]= (0x08 & m) ? step[1] + step[3] + step[4] : 0; // +X +Y -Z
+   s8m[4]= (0x10 & m) ? step[0] + step[3] + step[4] : 0; // -X +Y -Z
+   s8m[5]= (0x20 & m) ? step[0] + step[3] + step[5] : 0; // -X +Y +Z
+   s8m[6]= (0x40 & m) ? step[1] + step[2] + step[4] : 0; // +X -Y -Z
+   s8m[7]= (0x80 & m) ? step[1] + step[2] + step[5] : 0; // +X -Y +Z
 } // setS8M
 
 INLINE void setS14M (Stride s14m[], const Stride step[], const uint m)

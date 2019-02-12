@@ -52,7 +52,7 @@ typedef struct
    const char *fs, *eol[2];
 } FmtDesc;
 
-int dumpRegion (char *pCh, int maxCh, const DiffScalar * pS, const MMV3I *pRegion, const Stride s[3])
+int dumpScalarRegion (char *pCh, int maxCh, const DiffScalar * pS, const MMV3I *pRegion, const Stride s[3])
 {
    FmtDesc fd={"%.3G ","\n","\n"};
    int nCh= 0;
@@ -70,32 +70,44 @@ int dumpRegion (char *pCh, int maxCh, const DiffScalar * pS, const MMV3I *pRegio
       nCh+= snprintf(pCh+nCh, maxCh-nCh, fd.eol[1]);
    }
    return(nCh);
-} // dumpRegion
+} // dumpScalarRegion
 
-void dump (const DiffScalar * pS, const D3MapElem * pM, const V3I *pC, int a)
+int dumpMapRegion (char *pCh, int maxCh, const D3MapElem * pM, const MMV3I *pRegion, const Stride s[3])
+{
+   FmtDesc fd={"0x%x ","\n","\n"};
+   int nCh= 0;
+   for (Index z= pRegion->vMin.z; z <= pRegion->vMax.z; z++)
+   {
+      for (Index y= pRegion->vMin.y; y <= pRegion->vMax.y; y++)
+      {
+         for (Index x= pRegion->vMin.x; x <= pRegion->vMax.x; x++)
+         {
+            const size_t i= x * s[0] + y * s[1] + z * s[2];
+            nCh+= snprintf(pCh+nCh, maxCh-nCh, fd.fs, pM[i]);
+         }
+         nCh+= snprintf(pCh+nCh, maxCh-nCh, fd.eol[0]);
+      }
+      nCh+= snprintf(pCh+nCh, maxCh-nCh, fd.eol[1]);
+   }
+   return(nCh);
+} // dumpMapRegion
+
+void dumpSMR (const DiffScalar * pS, const D3MapElem * pM, const V3I *pC, int a)
 {
    const MMV3I mm= {pC->x-a,pC->y-a,pC->z-a, pC->x+a,pC->y+a,pC->z+a};
-   char buff[1<<12];
+   char buff[1<<14];
+   const int m= sizeof(buff)-1;
    //adjustMMV3I(&mm, a);
-   if (dumpRegion(buff, sizeof(buff)-1, pS, &mm, gCtx.org.stride))
+   int n= dumpScalarRegion(buff, m, pS, &mm, gCtx.org.stride);
+
+   if (n > 0)
    {
+      Stride s[3]={ 1, gCtx.org.def.x, gCtx.org.def.x * gCtx.org.def.y };
+
+      n+= dumpMapRegion(buff+n, m-n, pM, &mm, s);
       printf("C(%d,%d,%d):-\n%s", pC->x, pC->y, pC->z, buff);
-      for (Index z= mm.vMin.z; z <= mm.vMax.z; z++)
-      {
-         for (Index y= mm.vMin.y; y <= mm.vMax.y; y++)
-         {
-            for (Index x= mm.vMin.x; x <= mm.vMax.x; x++)
-            {
-               size_t i= x + y * gCtx.org.def.x + z * gCtx.org.def.x * gCtx.org.def.y;
-               dumpM6(pM[i], ",\t");
-               //printf("0x%x ", pM[i] & 0x3f);
-            }
-            printf("\n");
-         }
-         printf("\n");
-      }
    }
-} // dump
+} // dumpSMR
 
 typedef struct
 {
@@ -263,15 +275,13 @@ int main (int argc, char *argv[])
          initFieldVC(gCtx.pSR[0], &(gCtx.org), gM, &(mi.m));
          reduct3_2_0(&rrN, gCtx.ws.p, gCtx.pSR[0], &(gCtx.org));
          printf("smm: %G, %G, %G\n", rrN.sum, rrN.mm.vMin, rrN.mm.vMax );
-         //dump(gCtx.pSR[0], &(mi.m), 2);
 
          initIsoW(gCtx.wPhase[0].w, 0.5, param.nHood, 0);
          iT= diffProcIsoD3SxM(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), gCtx.wPhase, gCtx.pM, param.iter, param.nHood);
          iN= iT & 1;
-         dump(gCtx.pSR[iN], gCtx.pM, &(mi.m), 2);
+         //dumpSMR(gCtx.pSR[iN], gCtx.pM, &(mi.m), 2);
          reduct3_2_0(&rrN, gCtx.ws.p, gCtx.pSR[iN], &(gCtx.org));
-         printf("smm: %G, %G, %G\n", rrN.sum, rrN.mm.vMin, rrN.mm.vMax );
-         //dump(gCtx.pSR[0], &(mi.m), 2);
+         printf("N%u I%u SMM: %G, %G, %G\n", param.nHood, iT, rrN.sum, rrN.mm.vMin, rrN.mm.vMax );
          save("rgb", "NRED.rgb", gCtx.ws.p, param.nHood, param.iter, -1, NULL);
       }
    }
