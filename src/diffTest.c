@@ -243,7 +243,7 @@ int main (int argc, char *argv[])
       MapInfo mi;
       float f=-1;
 
-      if (argc > 1000)
+      if (argc > 0)//100
       {
          const char *fileName= "s(256,256,256)u8.raw";//argv[1]
          f= mapFromU8Raw(gCtx.pM, &mi, &(gCtx.ws), fileName, 112, &(gCtx.org));
