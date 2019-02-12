@@ -21,7 +21,7 @@ typedef uint (*DiffProcIsoMapFuncPtr)
 /***/
 
 INLINE void setS6M (Stride s6m[], const Stride step[], const uint m)
-{
+{  // NB: ORDERED BY OPPOSING (-+) PAIRS FOR EFFICIENT PROCESSING!
    s6m[0]= (0x01 & m) ? step[0] : 0; // -X
    s6m[1]= (0x02 & m) ? step[1] : 0; // +X
    s6m[2]= (0x04 & m) ? step[2] : 0; // -Y
@@ -31,7 +31,7 @@ INLINE void setS6M (Stride s6m[], const Stride step[], const uint m)
 } // setS6M
 
 INLINE void setS12M (Stride s12m[], const Stride step[], const uint m)
-{  // NEED ORDERING BY OPPOSING PAIRS FOR EFFICIENT NEIGHBOUR PROCESSING!
+{  // NB: ORDERED BY OPPOSING (-+) PAIRS FOR EFFICIENT PROCESSING!
    s12m[0]= (0x001 & m) ? (step[0] + step[2]) : 0; // -X -Y
    s12m[1]= (0x002 & m) ? (step[1] + step[3]) : 0; // +X +Y
    s12m[2]= (0x004 & m) ? (step[0] + step[3]) : 0; // -X +Y
@@ -49,7 +49,7 @@ INLINE void setS12M (Stride s12m[], const Stride step[], const uint m)
 } // setS12M
 
 INLINE void setS8M (Stride s8m[], const Stride step[], const uint m)
-{  // NEED ORDERING BY OPPOSING PAIRS FOR EFFICIENT NEIGHBOUR PROCESSING!
+{  // NB: ORDERED BY OPPOSING (-+) PAIRS FOR EFFICIENT PROCESSING!
    s8m[0]= (0x01 & m) ? step[0] + step[2] + step[4] : 0; // -X -Y -Z
    s8m[1]= (0x02 & m) ? step[1] + step[3] + step[5] : 0; // +X +Y +Z
    s8m[2]= (0x04 & m) ? step[0] + step[2] + step[5] : 0; // -X -Y +Z
@@ -78,6 +78,53 @@ INLINE void setS26M (Stride s26m[], const Stride step[], const uint m)
    setS12M(s26m+6, step, m>>6);
    setS8M(s26m+18, step, m>>18);
 } // setS26M
+
+// Boundary flag routines: not used here but map flag ordering must be identical
+// to usage for generating offsets as in setS*M() above.
+INLINE uint getBoundaryM6 (Index x, Index y, Index z, const MMV3I *pMM)
+{
+   uint m6= 0;
+   m6|= (x > pMM->vMin.x) << 0; // -X
+   m6|= (x < pMM->vMax.x) << 1; // +X
+   m6|= (y > pMM->vMin.x) << 2; // -Y
+   m6|= (y < pMM->vMax.y) << 3; // +Y
+   m6|= (z > pMM->vMin.z) << 4; // -Z
+   m6|= (z < pMM->vMax.z) << 5; // +Z
+   return(m6);
+} // getBoundaryM6
+
+INLINE uint getBoundaryM12 (const uint m6)
+{
+   uint m12= 0;
+   m12|= ((m6 & 0x01) && (m6 & 0x04)) << 0; // -X -Y
+   m12|= ((m6 & 0x02) && (m6 & 0x08)) << 1; // +X +Y
+   m12|= ((m6 & 0x01) && (m6 & 0x08)) << 2; // -X +Y
+   m12|= ((m6 & 0x02) && (m6 & 0x04)) << 3; // +X -Y
+   m12|= ((m6 & 0x01) && (m6 & 0x10)) << 4; // -X -Z
+   m12|= ((m6 & 0x02) && (m6 & 0x20)) << 5; // +X +Z
+   m12|= ((m6 & 0x01) && (m6 & 0x20)) << 6; // -X +Z
+   m12|= ((m6 & 0x02) && (m6 & 0x10)) << 7; // +X -Z
+   m12|= ((m6 & 0x04) && (m6 & 0x10)) << 8;  // -Y -Z
+   m12|= ((m6 & 0x08) && (m6 & 0x20)) << 9;  // +Y +Z
+   m12|= ((m6 & 0x04) && (m6 & 0x20)) << 10; // -Y +Z
+   m12|= ((m6 & 0x08) && (m6 & 0x10)) << 11; // +Y -Z
+   return(m12);
+} // getBoundaryM12
+
+INLINE uint getBoundaryM8 (const uint m6)
+{
+   uint m8= 0;
+   m8|= ((m6 & 0x01) && (m6 & 0x04) && (m6 & 0x10)) << 0; // -X -Y -Z
+   m8|= ((m6 & 0x02) && (m6 & 0x08) && (m6 & 0x20)) << 1; // +X +Y +Z
+   m8|= ((m6 & 0x01) && (m6 & 0x04) && (m6 & 0x20)) << 2; // -X -Y +Z
+   m8|= ((m6 & 0x02) && (m6 & 0x08) && (m6 & 0x10)) << 3; // +X +Y -Z
+   m8|= ((m6 & 0x01) && (m6 & 0x08) && (m6 & 0x10)) << 4; // -X +Y -Z
+   m8|= ((m6 & 0x01) && (m6 & 0x08) && (m6 & 0x20)) << 5; // -X +Y +Z
+   m8|= ((m6 & 0x02) && (m6 & 0x04) && (m6 & 0x10)) << 6; // +X -Y -Z
+   m8|= ((m6 & 0x02) && (m6 & 0x04) && (m6 & 0x20)) << 7; // +X -Y +Z
+   return(m8);
+} // getBoundaryM8
+
 
 //---
 
@@ -442,6 +489,21 @@ void diffSet6To26 (Stride s26[])
    setS12M(s26+6, s26, 0xFFF);
    setS8M(s26+18, s26, 0xFF);
 } // diffSet6To26
+
+uint getBoundaryM26 (Index x, Index y, Index z, const MMV3I *pMM)
+{
+   const uint m6= getBoundaryM6(x, y, z, pMM);
+   return( m6 | (getBoundaryM12(m6) << 6) | (getBoundaryM8(m6) << 18) );
+} // getBoundaryM26
+
+uint getBoundaryM26V (Index x, Index y, Index z, const MMV3I *pMM)
+{
+   const uint m6= getBoundaryM6(x, y, z, pMM);
+   const uint m12= getBoundaryM12(m6);
+   const uint m8= getBoundaryM8(m6);
+   printf("getBoundaryM26V(%d, %d, %d) - m6=0x%x, m12=0x%x, m8=0x%x\n", x, y, z, m6, m12, m8);
+   return(m6 | (m12 << 6) | (m8 << 18));
+} // getBoundaryM26V
 
 void test (const DiffOrg * pO)
 {

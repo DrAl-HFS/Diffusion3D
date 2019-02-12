@@ -15,6 +15,8 @@ typedef double DiffScalar;
 typedef signed long  Index, Stride;
 
 typedef struct { Index x, y, z; } V3I;
+typedef struct { V3I vMin, vMax; } MMV3I;
+
 //typedef struct { float x, y, z; } V3F;
 
 // Buffer organisation (one or more planar/interleaved scalar fields)
@@ -81,7 +83,12 @@ uint diffProcIsoD3SxM
    const uint nHood
 );
 
+// Expand 6 (-+strideXYZ) steps to 26 neighbourhood
 extern void diffSet6To26 (Stride s26[]);
+
+// Boundary check coordinates against the specified min-max volume and return flag mask of permissible memory accesses 
+extern uint getBoundaryM26 (Index x, Index y, Index z, const MMV3I *pMM);
+extern uint getBoundaryM26V (Index x, Index y, Index z, const MMV3I *pMM); // verbose (debug) version
 
 extern void test (const DiffOrg * pO);
 

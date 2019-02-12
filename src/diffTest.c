@@ -269,7 +269,7 @@ int main (int argc, char *argv[])
          RedRes     rrN;
          uint      iT, iN;
 
-         param.nHood=6;
+         param.nHood=18;
          param.iter= 100;
          param.rD=   0.5;
          initFieldVC(gCtx.pSR[0], &(gCtx.org), gM, &(mi.m));

@@ -7,7 +7,6 @@
 
 #include "diff3D.h"
 
-typedef struct { V3I vMin, vMax; } MMV3I;
 typedef struct { V3I m; } MapInfo;
 
 

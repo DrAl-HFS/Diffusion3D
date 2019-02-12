@@ -112,78 +112,6 @@ static size_t adjustMap26 (D3MapElem *pM, const MapOrg *pO)
    return(n);
 } // adjustMap26
 
-static uint getBoundaryM6 (Index x, Index y, Index z, const MMV3I *pMM)
-{
-   uint m6= 0;
-
-   m6|= (x > pMM->vMin.x) << 0; // -X
-   m6|= (x < pMM->vMax.x) << 1; // +X
-
-   m6|= (y > pMM->vMin.x) << 2; // -Y
-   m6|= (y < pMM->vMax.y) << 3; // +Y
-
-   m6|= (z > pMM->vMin.z) << 4; // -Z
-   m6|= (z < pMM->vMax.z) << 5; // +Z
-
-   return(m6);
-} // getBoundaryM6
-
-static uint getBoundaryM12 (const uint m6)
-{
-   uint m12= 0;
-
-   m12|= ((m6 & 0x01) && (m6 & 0x04)) << 0; // -X -Y
-   m12|= ((m6 & 0x02) && (m6 & 0x08)) << 1; // +X +Y
-   m12|= ((m6 & 0x01) && (m6 & 0x08)) << 2; // -X +Y
-   m12|= ((m6 & 0x02) && (m6 & 0x04)) << 3; // +X -Y
-
-   m12|= ((m6 & 0x01) && (m6 & 0x10)) << 4; // -X -Z
-   m12|= ((m6 & 0x02) && (m6 & 0x20)) << 5; // +X +Z
-   m12|= ((m6 & 0x01) && (m6 & 0x20)) << 6; // -X +Z
-   m12|= ((m6 & 0x02) && (m6 & 0x10)) << 7; // +X -Z
-
-   m12|= ((uint)((m6 & 0x04) && (m6 & 0x10))) << 8;  // -Y -Z
-   m12|= ((uint)((m6 & 0x08) && (m6 & 0x20))) << 9;  // +Y +Z
-   m12|= ((uint)((m6 & 0x04) && (m6 & 0x20))) << 10; // -Y +Z
-   m12|= ((uint)((m6 & 0x08) && (m6 & 0x10))) << 11; // +Y -Z
-
-   return(m12);
-} // getBoundaryM12
-
-static uint getBoundaryM8 (const uint m6)
-{
-   uint m8= 0;
-
-   m8|= ((m6 & 0x01) && (m6 & 0x04) && (m6 & 0x10)) << 0; // -X -Y -Z
-   m8|= ((m6 & 0x02) && (m6 & 0x08) && (m6 & 0x20)) << 1; // +X +Y +Z
-
-   m8|= ((m6 & 0x01) && (m6 & 0x04) && (m6 & 0x20)) << 2; // -X -Y +Z
-   m8|= ((m6 & 0x02) && (m6 & 0x08) && (m6 & 0x10)) << 3; // +X +Y -Z
-
-   m8|= ((m6 & 0x01) && (m6 & 0x08) && (m6 & 0x10)) << 4; // -X +Y -Z
-   m8|= ((m6 & 0x01) && (m6 & 0x08) && (m6 & 0x20)) << 5; // -X +Y +Z
-
-   m8|= ((m6 & 0x02) && (m6 & 0x04) && (m6 & 0x10)) << 6; // +X -Y -Z
-   m8|= ((m6 & 0x02) && (m6 & 0x04) && (m6 & 0x20)) << 7; // +X -Y +Z
-
-   return(m8);
-} // getBoundaryM8
-
-static uint getBoundaryM26 (Index x, Index y, Index z, const MMV3I *pMM)
-{
-   const uint m6= getBoundaryM6(x, y, z, pMM);
-   return( m6 | (getBoundaryM12(m6) << 6) | (getBoundaryM8(m6) << 18) );
-} // getBoundaryM26
-
-static uint getBoundaryM26V (Index x, Index y, Index z, const MMV3I *pMM)
-{
-   const uint m6= getBoundaryM6(x, y, z, pMM);
-   const uint m12= getBoundaryM12(m6);
-   const uint m8= getBoundaryM8(m6);
-   printf("getBoundaryM26V(%d, %d, %d) - m6=0x%x, m12=0x%x, m8=0x%x\n", x, y, z, m6, m12, m8);
-   return(m6 | (m12 << 6) | (m8 << 18));
-} // getBoundaryM26V
-
 static void sealBoundaryMap (D3MapElem *pM, const MapOrg *pO)
 {
    for (Index y= pO->mm.vMin.y; y <= pO->mm.vMax.y; y++)
@@ -326,12 +254,12 @@ void genRevM (D3MapElem revM[], char n)
    }
 } // genRevM
 
-static size_t adjustMap6 (D3MapElem * const pM, const MapOrg *pO)
+static size_t adjustMapN (D3MapElem * const pM, const MapOrg *pO, const char n)
 {
-   D3MapElem revM[6];
+   D3MapElem revM[26];
    MMV3I mm;
       
-   genRevM(revM,6);
+   genRevM(revM,n);
    adjustMMV3I(&mm, &(pO->mm), -1);
    for (Index z= mm.vMin.z; z < mm.vMax.z; z++)
    {
@@ -342,7 +270,7 @@ static size_t adjustMap6 (D3MapElem * const pM, const MapOrg *pO)
             const size_t i= dotS3(x,y,x,pO->stride);
             if (0 == pM[i])
             {
-               for (int j=0; j < 6; j++)
+               for (int j=0; j < n; j++)
                {
                   pM[i + pO->step[j] ] &= revM[j];
                }
@@ -351,7 +279,7 @@ static size_t adjustMap6 (D3MapElem * const pM, const MapOrg *pO)
       }
    }
    return(0);
-} // adjustMap6
+} // adjustMapN
 
 float setDefaultMap (D3MapElem *pM, const V3I *pD, const uint id)
 {
@@ -367,8 +295,6 @@ float setDefaultMap (D3MapElem *pM, const V3I *pD, const uint id)
       case 1 :
       {
          size_t j= dotS3(127,128,128, org.stride);
-         D3MapElem revM[6];
-         genRevM(revM,6);
          pM[j]= 0; // create obstruction
 #if 1
 /*         j+= 1;
@@ -389,13 +315,15 @@ float setDefaultMap (D3MapElem *pM, const V3I *pD, const uint id)
             pM[j + k]= m= conformantS26M(pM + j +k, org.step);
             dumpM6(m,"\n"); 
          }*/
+         D3MapElem revM[26];
+         genRevM(revM,26);
          // process all neighbours of obstruction
-         for (int i=0; i < 6; i++)
+         for (int i=0; i < 26; i++)
          {
             pM[j + org.step[i]]&= revM[i];
          }
 #else
-         adjustMap6(pM, &org);
+         adjustMapN(pM, &org, 26);
          //printf("adjustMap26() - %zu\n", adjustMap26(pM, &org) );
 #endif
          break;
@@ -424,7 +352,7 @@ float mapFromU8Raw (D3MapElem *pM, MapInfo *pMI, const MemBuff *pWS, const char 
          float r= processMap(pM, pMI, pWS->p, &org, t);
 
          sealBoundaryMap(pM, &org);
-         adjustMap6(pM, &org);
+         adjustMapN(pM, &org, 26);
          return(r);
       }
    }
