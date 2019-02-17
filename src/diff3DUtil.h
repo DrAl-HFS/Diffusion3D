@@ -12,6 +12,8 @@ typedef struct { V3I m; } MapInfo;
 
 /***/
 
+extern size_t dotS3 (Index x, Index y, Index z, Index s[3]);// { return( (size_t) (x*s[0]) + y*s[1] + z*s[2] ); }
+
 extern void adjustMMV3I (MMV3I *pR, const MMV3I *pS, const I32 a);
 
 extern size_t initDiffOrg (DiffOrg *pO, uint def, uint nP);

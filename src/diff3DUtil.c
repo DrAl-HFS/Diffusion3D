@@ -13,8 +13,13 @@ typedef struct
    size_t n;
 } MapOrg;
 
+typedef struct
+{
+   U8 vMin,vMax;
+} MMU8;
 
 /***/
+
 size_t dotS3 (Index x, Index y, Index z, Index s[3]) { return( (size_t) (x*s[0]) + y*s[1] + z*s[2] ); }
 size_t d2I3 (int dx, int dy, int dz) { return( dx*dx + dy*dy + dz*dz ); }
 
@@ -31,9 +36,9 @@ static const D3S6MapElem v6[2]= { (1<<6)-1, 0 };
    return( procMapU8(pM, pU8, n, t, v6) / v6[0] );
 } // map26TransferU8
 
-static size_t mapTransferU8 (D3MapElem * restrict pM, const U8 *pU8, const size_t n, const U8 t, const D3MapElem solid )
+static size_t mapTransferU8 (D3MapElem * restrict pM, const U8 *pU8, const size_t n, const U8 t)
 {
-   const D3MapElem v26[2]= { (1<<26)-1, solid };
+   const D3MapElem v26[2]= { -1, (1<<26)-1 };
    size_t s[2]={0,0};
    for (size_t i=0; i<n; i++)
    { 
@@ -45,7 +50,7 @@ static size_t mapTransferU8 (D3MapElem * restrict pM, const U8 *pU8, const size_
    return( s[0] );
 } // mapTransferU8
 
-static void sealBoundaryMap (D3MapElem *pM, const MapOrg *pO, const D3MapElem f)
+static void sealBoundaryMap (D3MapElem *pM, const MapOrg *pO, const D3MapElem extMask)
 {
    for (Index y= pO->mm.vMin.y; y <= pO->mm.vMax.y; y++)
    {
@@ -53,8 +58,8 @@ static void sealBoundaryMap (D3MapElem *pM, const MapOrg *pO, const D3MapElem f)
       {
          const size_t i= x * pO->stride[0] + y * pO->stride[1] + pO->mm.vMin.z * pO->stride[2];
          const size_t j= x * pO->stride[0] + y * pO->stride[1] + pO->mm.vMax.z * pO->stride[2];
-         pM[i]&= f|getBoundaryM26(x, y, pO->mm.vMin.z, &(pO->mm));
-         pM[j]&= f|getBoundaryM26(x, y, pO->mm.vMax.z, &(pO->mm));
+         pM[i]&= extMask|getBoundaryM26(x, y, pO->mm.vMin.z, &(pO->mm));
+         pM[j]&= extMask|getBoundaryM26(x, y, pO->mm.vMax.z, &(pO->mm));
       }
    }
    for (Index z= pO->mm.vMin.z; z <= pO->mm.vMax.z; z++)
@@ -63,15 +68,15 @@ static void sealBoundaryMap (D3MapElem *pM, const MapOrg *pO, const D3MapElem f)
       {
          const size_t i= x * pO->stride[0] + pO->mm.vMin.y * pO->stride[1] + z * pO->stride[2];
          const size_t j= x * pO->stride[0] + pO->mm.vMax.y * pO->stride[1] + z * pO->stride[2];
-         pM[i]&= f|getBoundaryM26(x, pO->mm.vMin.y, z, &(pO->mm));
-         pM[j]&= f|getBoundaryM26(x, pO->mm.vMax.y, z, &(pO->mm));
+         pM[i]&= extMask|getBoundaryM26(x, pO->mm.vMin.y, z, &(pO->mm));
+         pM[j]&= extMask|getBoundaryM26(x, pO->mm.vMax.y, z, &(pO->mm));
       }
       for (Index y= pO->mm.vMin.y; y <= pO->mm.vMax.y; y++)
       {
          const size_t i= pO->mm.vMin.x * pO->stride[0] + y * pO->stride[1] + z * pO->stride[2];
          const size_t j= pO->mm.vMax.x * pO->stride[0] + y * pO->stride[1] + z * pO->stride[2];
-         pM[i]&= f|getBoundaryM26(pO->mm.vMin.x, y, z, &(pO->mm));
-         pM[j]&= f|getBoundaryM26(pO->mm.vMax.x, y, z, &(pO->mm));
+         pM[i]&= extMask|getBoundaryM26(pO->mm.vMin.x, y, z, &(pO->mm));
+         pM[j]&= extMask|getBoundaryM26(pO->mm.vMax.x, y, z, &(pO->mm));
       }
    }
 } // sealBoundaryMap
@@ -86,11 +91,11 @@ static void genRevM (D3MapElem revM[], char n)
    }
 } // genRevM
 
-static size_t adjustMapN (D3MapElem * const pM, const MapOrg *pO, const char n, const D3MapElem f)
+static void adjustMapN (D3MapElem * const pM, const MapOrg *pO, const char n, const D3MapElem extMask)
 {
    D3MapElem revM[26];//, u=0;
    MMV3I mm;
-   size_t nO=0;
+
    genRevM(revM,n);
    adjustMMV3I(&mm, &(pO->mm), 0); //-1);
    for (Index z= mm.vMin.z; z < mm.vMax.z; z++)
@@ -100,32 +105,85 @@ static size_t adjustMapN (D3MapElem * const pM, const MapOrg *pO, const char n, 
          for (Index x= mm.vMin.x; x < mm.vMax.x; x++)
          {
             const size_t i= dotS3(x,y,x,pO->stride);
-            //u|= pM[i];
-            if (pM[i] & f)
+            if (0 == (pM[i] & extMask))
             {  // obstruction
                for (char j=0; j < n; j++)
                {  // adjust all available neighbours, preventing flux into site
                   if (pM[i] & (1<<j)) { pM[i + pO->step[j] ] &= revM[j]; }
                }
                pM[i]= 0; // prevent processing of obstructed sites
-               nO++;
             }
          }
       }
    }
-   //printf("adjustMapN() - u=0x%x, f= 0x%x\n", u, f);
-   return(nO);
 } // adjustMapN
+
+void dumpDistBC (const D3MapElem * pM, const size_t nM)
+{
+   size_t d1[27], d2[7], s= 0;
+   for (int i=0; i<=26; i++) { d1[i]= 0; }
+   for (int i=0; i<=6; i++) { d2[i]= 0; }
+   for (size_t i=0; i<nM; i++)
+   {
+      uint b= bitCountZ( pM[i] & ((1<<26)-1) );
+      d1[b]++;
+      b= bitCountZ( pM[i] >> 26 );
+      d2[b]++;
+   }
+   printf("BitCountDist: ");
+   s= 0;
+   for (int i=0; i<=26; i++) { printf("%zu ", d1[i]); s+= d1[i]; }
+   printf("\nsum=%zu\nExtDist: ",s);
+   s= 0;
+   for (int i=0; i<=6; i++) { printf("%zu ", d2[i]); s+= d2[i]; }
+   printf("\nsum=%zu\n: ",s);
+} // dumpDistBC
+
+void dumpDMMBC (const U8 *pU8, const D3MapElem * pM, const size_t n)
+{
+   size_t d[33];
+   MMU8 mm[33];
+   for (int i=0; i<=32; i++) { mm[i].vMin= 0xFF; mm[i].vMax= 0; d[i]= 0; }
+   for (size_t i=0; i < n; i++)
+   {
+      uint b= bitCountZ( pM[i] );
+      d[b]++;
+      mm[b].vMin= MIN(mm[b].vMin, pU8[i]);
+      mm[b].vMax= MAX(mm[b].vMax, pU8[i]);
+   }
+   for (int i=0; i<=32; i++)
+   {
+      if (mm[i].vMax >= mm[i].vMin) { printf("%2u: %8zu %3u %3u\n", i, d[i], mm[i].vMin, mm[i].vMax); }
+   }
+} // dumpDMMBC
+
+void repairHack (D3MapElem * restrict pM, const U8 *pU8, const size_t n, const U8 t)
+{
+   D3MapElem m[]={ (1<<26)-1, 0 };
+   for (size_t i= 0; i<n; i++) { pM[i]&= m[ (pU8[i] > t) ]; }
+} // repairHack
 
 float processMap (D3MapElem *pM, MapInfo *pMI, U8 *pU8, const MapOrg *pO, U8 t)
 {
-   size_t r=-1, s, z;
+const D3MapElem extMask= 0x3f << 26;
+   size_t r=-1, s;
 
-   s= mapTransferU8(pM, pU8, pO->n, t, -1 );
-   sealBoundaryMap(pM, pO, 1<<27);
-   z= adjustMapN(pM, pO, 26, 1<<27);
+   printf("transfer...\n");
+   s= mapTransferU8(pM, pU8, pO->n, t );
+   dumpDMMBC(pU8, pM, pO->n);
 
-   printf("processMap() - %zu %zu %zu\n", s, z, pO->n);
+   printf("seal...\n");
+   sealBoundaryMap(pM, pO, extMask);
+   dumpDMMBC(pU8, pM, pO->n);
+
+   printf("adjust...\n");
+   adjustMapN(pM, pO, 26, extMask);
+   //repairHack(pM, pU8, pO->n, t);
+   dumpDMMBC(pU8, pM, pO->n);
+
+   //dumpDistBC(pM, pO->n);
+   //printf("processMap() - %zu %zu\n", s, pO->n);
+
    if (pMI)
    {
       V3I i, c, m;
@@ -313,24 +371,6 @@ float setDefaultMap (D3MapElem *pM, const V3I *pD, const uint id)
          size_t j= dotS3(127,128,128, org.stride);
          pM[j]= 0;  // -1; // create obstruction
 #if 1
-/*         j+= 1;
-         m= pM[j];
-         printf("I: T S V M\n"); 
-         for (int i=0; i < 26; i++)
-         {
-            const uint t= 1 << i;
-            const Index s= org.step[i];
-            const D3MapElem v= pM[ j+s ];
-            if ((m & t) && (0 == v)) { m&= ~t; }
-            printf("%d: 0x%x %d 0x%x 0x%x\n", i,t,s,v,m); 
-         }
-         pM[j]= m;*/
-/*       for (int i=0; i < 26; i++)
-         {
-            Index k= org.step[i];
-            pM[j + k]= m= conformantS26M(pM + j +k, org.step);
-            dumpM6(m,"\n"); 
-         }*/
          D3MapElem revM[26];
          genRevM(revM,26);
          // process all neighbours of obstruction

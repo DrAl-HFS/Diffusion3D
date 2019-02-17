@@ -55,9 +55,9 @@ INLINE void setS8M (Stride s8m[], const Stride step[], const uint m)
    s8m[2]= (0x04 & m) ? step[0] + step[2] + step[5] : 0; // -X -Y +Z
    s8m[3]= (0x08 & m) ? step[1] + step[3] + step[4] : 0; // +X +Y -Z
    s8m[4]= (0x10 & m) ? step[0] + step[3] + step[4] : 0; // -X +Y -Z
-   s8m[5]= (0x20 & m) ? step[0] + step[3] + step[5] : 0; // -X +Y +Z
-   s8m[6]= (0x40 & m) ? step[1] + step[2] + step[4] : 0; // +X -Y -Z
-   s8m[7]= (0x80 & m) ? step[1] + step[2] + step[5] : 0; // +X -Y +Z
+   s8m[5]= (0x20 & m) ? step[1] + step[2] + step[5] : 0; // +X -Y +Z
+   s8m[6]= (0x40 & m) ? step[0] + step[3] + step[5] : 0; // -X +Y +Z
+   s8m[7]= (0x80 & m) ? step[1] + step[2] + step[4] : 0; // +X -Y -Z
 } // setS8M
 
 INLINE void setS14M (Stride s14m[], const Stride step[], const uint m)
@@ -119,9 +119,9 @@ INLINE uint getBoundaryM8 (const uint m6)
    m8|= ((m6 & 0x01) && (m6 & 0x04) && (m6 & 0x20)) << 2; // -X -Y +Z
    m8|= ((m6 & 0x02) && (m6 & 0x08) && (m6 & 0x10)) << 3; // +X +Y -Z
    m8|= ((m6 & 0x01) && (m6 & 0x08) && (m6 & 0x10)) << 4; // -X +Y -Z
-   m8|= ((m6 & 0x01) && (m6 & 0x08) && (m6 & 0x20)) << 5; // -X +Y +Z
-   m8|= ((m6 & 0x02) && (m6 & 0x04) && (m6 & 0x10)) << 6; // +X -Y -Z
-   m8|= ((m6 & 0x02) && (m6 & 0x04) && (m6 & 0x20)) << 7; // +X -Y +Z
+   m8|= ((m6 & 0x02) && (m6 & 0x04) && (m6 & 0x20)) << 5; // +X -Y +Z
+   m8|= ((m6 & 0x01) && (m6 & 0x08) && (m6 & 0x20)) << 6; // -X +Y +Z
+   m8|= ((m6 & 0x02) && (m6 & 0x04) && (m6 & 0x10)) << 7; // +X -Y -Z
    return(m8);
 } // getBoundaryM8
 
