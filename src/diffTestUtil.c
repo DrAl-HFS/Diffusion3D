@@ -442,3 +442,14 @@ void dumpM6 (uint m6, const char *e)
    }
    if (e) { printf("%s", e); }
 } // dumpM6
+
+void dumpM8 (uint m8, const char *e)
+{
+   char a[]="XYZ";
+   char s[]="-+";
+   for (int i= 0; i < 8; i++)
+   {
+      //if (m8 & (1<<i)) { printf("%c%c ", s[i&1], a[i>>1] ); } else { printf("   "); }
+   }
+   if (e) { printf("%s", e); }
+} // dumpM6

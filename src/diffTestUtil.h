@@ -50,5 +50,7 @@ extern SMVal relDiffStrideNS (DiffScalar * pR, const DiffScalar * pS1, const Dif
 */
 
 extern void dumpM6 (uint m6, const char *e);
+//extern void dumpM12 (uint m12, const char *e);
+//extern void dumpM8 (uint m8, const char *e);
 
 #endif // DIFF_TEST_UTIL_H

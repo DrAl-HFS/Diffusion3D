@@ -100,13 +100,13 @@ void dumpSMR (const DiffScalar * pS, const D3MapElem * pM, const V3I *pC, int a)
    //adjustMMV3I(&mm, a);
    int n= dumpScalarRegion(buff, m, pS, &mm, gCtx.org.stride);
 
-   if (n > 0)
+   if (pM)
    {
       Stride s[3]={ 1, gCtx.org.def.x, gCtx.org.def.x * gCtx.org.def.y };
 
       n+= dumpMapRegion(buff+n, m-n, pM, &mm, s);
-      printf("C(%d,%d,%d):-\n%s", pC->x, pC->y, pC->z, buff);
    }
+   if (n > 0) { printf("C(%d,%d,%d):-\n%s", pC->x, pC->y, pC->z, buff); }
 } // dumpSMR
 
 typedef struct
@@ -243,7 +243,7 @@ int main (int argc, char *argv[])
       MapInfo mi;
       float f=-1;
 
-      if (argc > 0)//100
+      if (argc > 0)
       {
          const char *fileName= "s(256,256,256)u8.raw";//argv[1]
          f= mapFromU8Raw(gCtx.pM, &mi, &(gCtx.ws), fileName, 112, &(gCtx.org));
@@ -267,19 +267,21 @@ int main (int argc, char *argv[])
       {
          TestParam param;
          RedRes     rrN;
-         uint      iT, iN;
+         uint      iT, iN, dumpR=0;
 
-         param.nHood=18;
-         param.iter= 100;
+         param.nHood=26;
+         param.iter= 1000;
          param.rD=   0.5;
          initFieldVC(gCtx.pSR[0], &(gCtx.org), gM, &(mi.m));
+         //gCtx.pSR[0][ dotS3(127,128,128, gCtx.org.stride) ]= -1;
+         if (dumpR > 0) { dumpSMR(gCtx.pSR[0], gCtx.pM, &(mi.m), dumpR); }
          reduct3_2_0(&rrN, gCtx.ws.p, gCtx.pSR[0], &(gCtx.org));
-         printf("smm: %G, %G, %G\n", rrN.sum, rrN.mm.vMin, rrN.mm.vMax );
+         printf("SMM: %G, %G, %G\n", rrN.sum, rrN.mm.vMin, rrN.mm.vMax );
 
          initIsoW(gCtx.wPhase[0].w, 0.5, param.nHood, 0);
          iT= diffProcIsoD3SxM(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), gCtx.wPhase, gCtx.pM, param.iter, param.nHood);
          iN= iT & 1;
-         //dumpSMR(gCtx.pSR[iN], gCtx.pM, &(mi.m), 2);
+         if (dumpR > 0) { dumpSMR(gCtx.pSR[iN], NULL, &(mi.m), dumpR); }
          reduct3_2_0(&rrN, gCtx.ws.p, gCtx.pSR[iN], &(gCtx.org));
          printf("N%u I%u SMM: %G, %G, %G\n", param.nHood, iT, rrN.sum, rrN.mm.vMin, rrN.mm.vMax );
          save("rgb", "NRED.rgb", gCtx.ws.p, param.nHood, param.iter, -1, NULL);
