@@ -20,7 +20,7 @@ typedef struct
 
 /***/
 
-size_t dotS3 (Index x, Index y, Index z, Index s[3]) { return( (size_t) (x*s[0]) + y*s[1] + z*s[2] ); }
+size_t dotS3 (Index x, Index y, Index z, const Stride s[3]) { return( (size_t) (x*s[0]) + y*s[1] + z*s[2] ); }
 size_t d2I3 (int dx, int dy, int dz) { return( dx*dx + dy*dy + dz*dz ); }
 
 static size_t procMapU8 (U8 *pR, const U8 *pS, size_t n, const U8 t, const U8 v[2])
@@ -163,7 +163,7 @@ void repairHack (D3MapElem * restrict pM, const U8 *pU8, const size_t n, const U
    for (size_t i= 0; i<n; i++) { pM[i]&= m[ (pU8[i] > t) ]; }
 } // repairHack
 
-float processMap (D3MapElem *pM, MapInfo *pMI, U8 *pU8, const MapOrg *pO, U8 t)
+float processMap (D3MapElem * pM, MapSiteInfo * pMSI, U8 * pU8, const MapOrg * pO, U8 t)
 {
 const D3MapElem extMask= 0x3f << 26;
    size_t r=-1, s;
@@ -184,7 +184,7 @@ const D3MapElem extMask= 0x3f << 26;
    //dumpDistBC(pM, pO->n);
    //printf("processMap() - %zu %zu\n", s, pO->n);
 
-   if (pMI)
+   if (pMSI)
    {
       V3I i, c, m;
       size_t mR=-1, mS=0;
@@ -199,7 +199,7 @@ const D3MapElem extMask= 0x3f << 26;
       c.z= pO->def.z / 2;
 
       adjustMMV3I(&mm, &(pO->mm), -1);
-      pMI->m= c;
+      pMSI->c= c;
       i.z= c.z;
       for (i.z=mm.vMin.z; i.z < mm.vMax.z; i.z++)
       {
@@ -214,7 +214,7 @@ const D3MapElem extMask= 0x3f << 26;
                if (0 == pU8[j])
                {
                   size_t d= d2I3( i.x - c.x, i.y - c.y, i.z - c.z );
-                  if (d < r) { r= d; pMI->m= i; }
+                  if (d < r) { r= d; pMSI->c= i; }
                }
             }
          }
@@ -394,7 +394,7 @@ float setDefaultMap (D3MapElem *pM, const V3I *pD, const uint id)
    return(1);
 } // setDefaultMap
 
-float mapFromU8Raw (D3MapElem *pM, MapInfo *pMI, const MemBuff *pWS, const char *path, U8 t, const DiffOrg *pO)
+float mapFromU8Raw (D3MapElem *pM, MapSiteInfo *pMSI, const MemBuff *pWS, const char *path, U8 t, const DiffOrg *pO)
 {
    size_t bytes= fileSize(path);
    char m;
@@ -406,7 +406,7 @@ float mapFromU8Raw (D3MapElem *pM, MapInfo *pMI, const MemBuff *pWS, const char 
       printf("mapFromU8Raw() - %G%cBytes\n", binSize(&m, bytes), m);
       if (bytes >= org.n)
       {
-         return processMap(pM, pMI, pWS->p, &org, t);
+         return processMap(pM, pMSI, pWS->p, &org, t);
       }
    }
    return(0);

@@ -7,17 +7,86 @@
 typedef struct { DiffScalar x, y; } SearchPoint;
 
 const float gEpsilon= 1.0 / (1<<30);
+const D3MapKeyVal gDefObsKV=
+{
+   {-1,0}, // mask, value
+   0.0, -1.0  // v2[0..1]
+};
 
 
 /***/
 
-void initFieldVC (DiffScalar * pS, const DiffOrg *pO, DiffScalar v, const V3I *pC)
+void initHack (void)
 {
-   memset(pS, 0, pO->n1B * sizeof(*pS));
+#ifdef NAN
+   D3MapKeyVal *pKV= (D3MapKeyVal*)&gDefObsKV; // HACK! const violation
+   pKV->v2[1]= NAN;
+   printf("initHack() - NAN set\n");
+#endif
+} // initHack
 
-   const size_t i= pC->x * pO->stride[0] + pC->y * pO->stride[1] + pC->z * pO->stride[2];
-   pS[i]= v;
-} // initFieldVC
+size_t initFieldVCM (DiffScalar * pS, const DiffOrg * pO, const D3MapElem * pM, const D3MapKeyVal *pKV, const MapSiteInfo * pMSI)
+{
+   size_t r=0;
+   if (pM)
+   {
+      const Stride mapStride[3]={1, pO->def.x, pO->def.x * pO->def.z};
+      if (NULL == pKV) { pKV= &gDefObsKV; }
+      for (Index z= 0; z < pO->def.z; z++)
+      {
+         for (Index y= 0; y < pO->def.y; y++)
+         {
+            for (Index x= 0; x < pO->def.z; x++)
+            {
+               const size_t iM= dotS3(x,y,z, mapStride); // x * mapStride[0] + y * mapStride[1] + z * mapStride[2];
+               const size_t iS= dotS3(x,y,z, pO->stride); //x * pO->stride[0] + y * pO->stride[1] + z * pO->stride[2];
+               int t= ( pKV->k.v == (pKV->k.m & pM[iM]) );
+               pS[iS]= pKV->v2[ t ];
+               r+= t;
+            }
+         }
+      }
+   }
+   else
+   {
+      memset(pS, 0, pO->n1B * sizeof(*pS));
+      r= pO->n1B;
+   }
+   if (pMSI)
+   {
+      const size_t i= pMSI->c.x * pO->stride[0] + pMSI->c.y * pO->stride[1] + pMSI->c.z * pO->stride[2];
+      pS[i]= pMSI->v;
+   }
+   return(r);
+} // initFieldVCM
+
+size_t resetFieldVCM (DiffScalar * pS, const DiffOrg *pO, const D3MapElem *pM, const D3MapKey *pK, DiffScalar v)
+{
+   size_t r=0;
+   if (pM)
+   {
+      const Stride mapStride[3]={1, pO->def.x, pO->def.x * pO->def.z};
+
+      if (NULL == pK) { pK= &(gDefObsKV.k); }
+      for (Index z= 0; z < pO->def.z; z++)
+      {
+         for (Index y= 0; y < pO->def.y; y++)
+         {
+            for (Index x= 0; x < pO->def.z; x++)
+            {
+               const size_t iM= x * mapStride[0] + y * mapStride[1] + z * mapStride[2];
+               if (pK->v == (pK->m & pM[iM]))
+               { 
+                  const size_t iS= x * pO->stride[0] + y * pO->stride[1] + z * pO->stride[2];
+                  pS[iS]= v;
+                  r++;
+               }
+            }
+         }
+      }
+   }
+   return(r);
+} // resetFieldVCM
 
 float d2F3 (float dx, float dy, float dz) { return( dx*dx + dy*dy + dz*dz ); }
 

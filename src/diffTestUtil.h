@@ -14,10 +14,21 @@ typedef struct
    SMVal Dt, sad;
 } SearchResult;
 
+typedef struct
+{
+   D3MapKey k;   // Mask and compare value
+   DiffScalar v2[2];
+} D3MapKeyVal;
+
+extern const D3MapKeyVal gDefObsKV; // = { {-1,0}, { 0, NAN } };
+
 
 /***/
 
-extern void initFieldVC (DiffScalar * pS, const DiffOrg *pO, DiffScalar v, const V3I *pC);
+extern void initHack (void);
+
+extern size_t initFieldVCM (DiffScalar * pS, const DiffOrg *pO, const D3MapElem *pM, const D3MapKeyVal *pKV, const MapSiteInfo * pI);
+extern size_t resetFieldVCM (DiffScalar * pS, const DiffOrg *pO, const D3MapElem *pM, const D3MapKey *pK, DiffScalar v);
 
 extern float d2F3 (float dx, float dy, float dz);
 extern float setDiffIsoK (DiffScalar k[2], const DiffScalar Dt, const uint dim);
