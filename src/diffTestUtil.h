@@ -56,7 +56,7 @@ extern DiffScalar searchMin1
 typedef struct { SMVal sum; MMSMVal mm; } RedRes;
 extern void reduct0 (RedRes * pR, const DiffScalar * const pS, const size_t n);
 // Reduce field to plane, then plane to scalars
-extern void reduct3_2_0 (RedRes * pR, DiffScalar * restrict pTR, const DiffScalar * const pS, const DiffOrg *pO);
+extern void reduct3_2_0 (RedRes * pR, DiffScalar * restrict pTR, const DiffScalar * const pS, const DiffOrg *pO, const char map);
 
 // DEPRECATE
 extern DiffScalar searchNewton (const MemBuff * pWS, const DiffScalar *pS, const DiffOrg *pO, const DiffScalar ma, const DiffScalar estDt);

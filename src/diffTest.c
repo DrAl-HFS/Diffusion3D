@@ -254,19 +254,21 @@ int main (int argc, char *argv[])
    if (init(&gCtx,1<<8))
    {
       float f=-1;
+      uint mapID= 1;
       gMSI.v= 1.0;
 
       if (argc > 1)
       {
-         const char *fileName= argv[1]; //"s(256,256,256)u8.raw";
+         const char *fileName= argv[1];
          if (fileSize(fileName) > 0)
          {
             f= mapFromU8Raw(gCtx.pM, &gMSI, &(gCtx.ws), fileName, 112, &(gCtx.org));
+            mapID= -1;
          }
       }
       if (f <= 0)
       {
-         f= setDefaultMap(gCtx.pM, &(gCtx.org.def), 0);
+         f= setDefaultMap(gCtx.pM, &(gCtx.org.def), mapID);
          scaleV3I(&(gMSI.c), &(gCtx.org.def), 0.5);
       }
 
@@ -275,35 +277,52 @@ int main (int argc, char *argv[])
       //initW(gCtx.wPhase[0].w, 0.5, 6, 0); // ***M8***
       //iT= diffProcIsoD3S6M(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), (D3S6IsoWeights*)(gCtx.wPhase), gCtx.pM, 100);
 
-      if (f >= 0.99) // modeFlags & FLAG_NHTEST ???
+      if (0 == mapID) //(f >= 0.99) // modeFlags & FLAG_NHTEST ???
       {
-         static const U8 nHoods[]={6};//,14,18,26};
-         compareAnNHI(nHoods, sizeof(nHoods), 20, 20);
+         static const U8 nHoods[]={6,14,18,26};
+         compareAnNHI(nHoods, sizeof(nHoods), 20, 100);
       }
       else
       {
          TestParam param;
          RedRes     rrN;
-         uint      iT, iN, dumpR=0;
+         uint      iT=0, iN=0, dumpR=0;
 
+         //iT= 0; iN= iT & 1;
          param.nHood=26;
          param.iter= 100;
          param.rD=   0.5;
          initFieldVCM(gCtx.pSR[0], &(gCtx.org), NULL, NULL, &gMSI);
-         //gCtx.pSR[0][ dotS3(127,128,128, gCtx.org.stride) ]= -1;
          if (dumpR > 0) { dumpSMR(gCtx.pSR[0], gCtx.pM, &(gMSI.c), dumpR); }
-         reduct3_2_0(&rrN, gCtx.ws.p, gCtx.pSR[0], &(gCtx.org));
+
+         reduct3_2_0(&rrN, gCtx.ws.p, gCtx.pSR[0], &(gCtx.org), 0);
          printf("Initial SMM: %G, %G, %G\n", rrN.sum, rrN.mm.vMin, rrN.mm.vMax );
-         resetFieldVCM(gCtx.pSR[iN], &(gCtx.org), gCtx.pM, &(gDefObsKV.k), gDefObsKV.v2[1]);
+         // Set NAN / -1 for test
+         resetFieldVCM(gCtx.pSR[0], &(gCtx.org), gCtx.pM, &(gDefObsKV.k), gDefObsKV.v2[1]);
 
          initIsoW(gCtx.wPhase[0].w, 0.5, param.nHood, 0);
          iT= diffProcIsoD3SxM(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), gCtx.wPhase, gCtx.pM, param.iter, param.nHood);
          iN= iT & 1;
+
+         // Clear NAN / -1 for tally
          resetFieldVCM(gCtx.pSR[iN], &(gCtx.org), gCtx.pM, NULL, 0);
+
          if (dumpR > 0) { dumpSMR(gCtx.pSR[iN], NULL, &(gMSI.c), dumpR); }
-         reduct3_2_0(&rrN, gCtx.ws.p, gCtx.pSR[iN], &(gCtx.org));
+
+         const char mode= 0, *name="NRED.rgb";
+         reduct3_2_0(&rrN, gCtx.ws.p, gCtx.pSR[iN], &(gCtx.org), mode);
          printf("N%u I%u SMM: %G, %G, %G\n", param.nHood, iT, rrN.sum, rrN.mm.vMin, rrN.mm.vMax );
-         save("rgb", "NRED.rgb", gCtx.ws.p, param.nHood, param.iter, -1, NULL);
+
+         // output
+         MMSMVal mm, *pMM=NULL;
+         if ('L' == mode)
+         {
+            mm.vMax= log(rrN.mm.vMax);
+            if (rrN.mm.vMin > 0) { mm.vMin= log(rrN.mm.vMin); } else { mm.vMin= log(gEpsilon); }
+            pMM= &mm;
+         } else { pMM= &(rrN.mm); }
+
+         save("rgb", name, gCtx.ws.p, param.nHood, param.iter, -1, pMM);
       }
    }
    release(&gCtx);

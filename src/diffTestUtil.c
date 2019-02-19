@@ -77,7 +77,7 @@ size_t resetFieldVCM (DiffScalar * pS, const DiffOrg *pO, const D3MapElem *pM, c
                const size_t iM= x * mapStride[0] + y * mapStride[1] + z * mapStride[2];
                if (pK->v == (pK->m & pM[iM]))
                { 
-                  const size_t iS= x * pO->stride[0] + y * pO->stride[1] + z * pO->stride[2];
+                  const size_t iS= dotS3(x,y,z,pO->stride);// x * pO->stride[0] + y * pO->stride[1] + z * pO->stride[2];
                   pS[iS]= v;
                   r++;
                }
@@ -383,12 +383,17 @@ void reduct0 (RedRes * pR, const DiffScalar * const pS, const size_t n)
    reduct1F0(pR,pS,n);
 } // reduct0
 
-void reduct3_2_0 (RedRes * pR, DiffScalar * restrict pTR, const DiffScalar * const pS, const DiffOrg *pO)
+void reduct3_2_0 (RedRes * pR, DiffScalar * restrict pTR, const DiffScalar * const pS, const DiffOrg *pO, const char map)
 {
    #pragma acc data present_or_create( pTR[:pO->n1P] ) present_or_copyin( pS[:pO->n1F], pO[:1] ) copyout( pTR[:pO->n1P] )
    {
       reduct3P2(pTR, pS, pO);
       reduct1F0(pR, pTR, pO->n1P);
+      if ('L' == map)
+      {
+         #pragma acc parallel
+         for (size_t i=1; i < pO->n1P; i++) { pTR[i]= log( pTR[i] ); }
+      }
    }
 } // reduct3_2_0
 
