@@ -84,14 +84,14 @@ SMVal deltaT (void)
    return(dt);
 } // deltaT
 
-void statMom1AddW (StatMom1 * const pS, const SMVal v, const SMVal w)
+void statMom1AddW (StatMomD1R2 * const pS, const SMVal v, const SMVal w)
 {
    pS->m[0]+= w;
    pS->m[1]+= v * w;
    pS->m[2]+= v * v * w;
 } // statMom1AddW
 
-void statMom3AddW (StatMom3 * const pS, const SMVal x, const SMVal y, const SMVal z, const SMVal w)
+void statMom3AddW (StatMomD3R2 * const pS, const SMVal x, const SMVal y, const SMVal z, const SMVal w)
 {
    pS->m0+= w;
    pS->m1[0]+= x * w;
@@ -105,9 +105,9 @@ void statMom3AddW (StatMom3 * const pS, const SMVal x, const SMVal y, const SMVa
    pS->m2[5]+= y * x * w;
 } // statMom3AddW
 
-uint statMom1Res1 (StatRes1 * const pR, const StatMom1 * const pS, const SMVal dof)
+uint statMom1Res1 (StatResD1R2 * const pR, const StatMomD1R2 * const pS, const SMVal dof)
 {
-   StatRes1 r={ 0, 0 };
+   StatResD1R2 r={ 0, 0 };
    uint o= 0;
    if (pS && (pS->m[0] > 0))
    {
@@ -124,7 +124,7 @@ uint statMom1Res1 (StatRes1 * const pR, const StatMom1 * const pS, const SMVal d
    return(o);
 } // statMom1Res1
 
-uint statMom3Res1 (StatRes1 r[3], const StatMom3 * const pS, const SMVal dof)
+uint statMom3Res1 (StatResD1R2 r[3], const StatMomD3R2 * const pS, const SMVal dof)
 {
    uint o= 0;
    if (pS && (pS->m0 > 0))
@@ -172,6 +172,26 @@ static const U8 n4b[]=
 	return(c);
 } // bitCountZ
 
+extern int strFmtNSMV (char s[], const int maxS, const char *fmt, const SMVal v[], const int n)
+{
+   int i=0, nS=0;
+   while ((nS < maxS) && (i < n)) { nS+= snprintf(s+nS, maxS-nS, fmt, v[i]); ++i; }
+   return(nS);
+} // strFmtNSMV
+
+extern SMVal sumNSMV (const SMVal v[], const size_t n) 
+{
+   SMVal s=0;
+   for (size_t i= 0; i<n; i++) { s+= v[i]; }
+   return(s);
+} // sumNSSMV
+
+extern SMVal meanNSMV (const SMVal v[], const size_t n)
+{
+   if (n > 0) return( sumNSMV(v, n) / n );
+   //else
+   return(0);
+} // meanNSMV
 
 #ifdef UTIL_TEST
 

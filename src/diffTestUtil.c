@@ -21,7 +21,7 @@ void initHack (void)
 #ifdef NAN
    D3MapKeyVal *pKV= (D3MapKeyVal*)&gDefObsKV; // HACK! const violation
    pKV->v2[1]= NAN;
-   printf("initHack() - NAN set\n");
+   printf("initHack() - NAN set: %G\n", pKV->v2[1]);
 #endif
 } // initHack
 
@@ -50,7 +50,7 @@ size_t initFieldVCM (DiffScalar * pS, const DiffOrg * pO, const D3MapElem * pM, 
    else
    {
       memset(pS, 0, pO->n1B * sizeof(*pS));
-      r= pO->n1B;
+      //r= pO->n1B;
    }
    if (pMSI)
    {
@@ -182,11 +182,12 @@ DiffScalar initAnalytic (DiffScalar * pR, const DiffOrg *pO, const DiffScalar v,
    return(t);
 } // initAnalytic
 
-DiffScalar analyseField (StatRes1 r[3], const DiffScalar * pS, const DiffOrg *pO)
+DiffScalar analyseField (AnResD3R2 * pR, const DiffScalar * pS, const DiffOrg *pO)
 {
-   StatMom3 sm3={0,};
-   DiffScalar tv=0;
+   StatMomD3R2 sm3={0,};
+   MMSMVal mm;
 
+   mm.vMin= mm.vMax= pS[0];
    for (Index z=0; z < pO->def.z; z++)
    {
       for (Index y=0; y < pO->def.y; y++)
@@ -195,66 +196,83 @@ DiffScalar analyseField (StatRes1 r[3], const DiffScalar * pS, const DiffOrg *pO
          {
             const size_t i= x * pO->stride[0] + y * pO->stride[1] + z * pO->stride[2];
             statMom3AddW(&sm3, x, y, z, pS[i]);
+            mm.vMin= fmin(mm.vMin, pS[i]);
+            mm.vMax= fmax(mm.vMax, pS[i]);
          }
       }
    }
-   statMom3Res1(r, &sm3, 0);
-   return((r[0].v + r[1].v + r[2].v) / 3);
+   if (pR)
+   {
+      StatResD1R2 r[3];
+      statMom3Res1(r, &sm3, 0);
+      for (int i=0; i<3; i++)
+      {
+         pR->mean[i]= r[i].m;
+         pR->var[i]= r[i].v;
+      }
+      pR->sum= sm3.m0;
+      pR->mm= mm;
+   }
+   return(sm3.m0);
 } // analyseField
 
-size_t saveSliceRGB (const char path[], const DiffScalar * pS, const uint z, const DiffOrg *pO, const MMSMVal *pMM)
+void minMaxNSMV (MMSMVal *pMM, const SMVal v[], const size_t n, const Stride s)
 {
-   if (z < pO->def.z)
+   MMSMVal mm;
+   mm.vMin= mm.vMax= v[0];
+   for (size_t i=1; i < n; i++)
    {
-      unsigned char *pB;
-      size_t nB= pO->n1P * 3;
-      pB= malloc(nB);
-      if (pB)
+      size_t j= i * s;
+      mm.vMin= fmin(mm.vMin, v[j]);
+      mm.vMax= fmax(mm.vMax, v[j]);
+   }
+   *pMM= mm;
+} // minMaxNSMV
+
+size_t saveSliceRGB (const char path[], const DiffScalar * pS, const DiffOrg *pO, const MMSMVal *pMM)
+{
+   unsigned char *pB;
+   size_t nB= pO->n1P * 3;
+   pB= malloc(nB);
+   if (pB)
+   {
+      MMSMVal mm, rmm={1,1};
+
+      if (NULL == pMM)
       {
-         MMSMVal mm, rmm={1,1};
-
-         if (NULL == pMM)
-         {
-            mm.vMin= mm.vMax= pS[0];
-            for (size_t i=1; i < pO->n1P; i++)
-            {
-               size_t j= i * pO->stride[0];
-               mm.vMin= fmin(mm.vMin, pS[j]);
-               mm.vMax= fmax(mm.vMax, pS[j]);
-            }
-            printf("saveSliceRGB() - mm=%G,%G\n",mm.vMin,mm.vMax);
-            pMM= &mm;
-         }
-         if (0 != pMM->vMin) { rmm.vMin= 1.0 / pMM->vMin; }
-         if (0 != pMM->vMax) { rmm.vMax= 1.0 / pMM->vMax; }
-         for (size_t i=0; i < pO->n1P; i++)
-         {
-            size_t j= i * pO->stride[0];
-            size_t k= i * 3;
-            unsigned char r= 0, g=0, b= 0;
-            if (pS[j] > 0) //gEpsilon)
-            {
-               float t= rmm.vMax * pS[j];
-               g= 0x00 + t * 0xF0;
-               b= 0x40 + t * 0xBF;
-            }
-            else if (pS[j] < 0)
-            {
-               float t= rmm.vMin * pS[j];
-               g= 0x00 + t * 0xF0;
-               r= 0x40 + t * 0xBF;
-            }
-
-            pB[k+0]= r;
-            pB[k+1]= g;
-            pB[k+2]= b;
-         }
-         //pB[0]= pB[1]= pB[2]= 0xFF;
-         nB= saveBuff(pB, path, nB);
-         printf("saveSliceRGB(%s) - %zu bytes\n", path, nB);
-         free(pB);
-         return(nB);
+         pMM= &mm;
+         minMaxNSMV(&mm, pS, pO->n1P, pO->stride[0]);
+         printf("saveSliceRGB() - mm=%G,%G\n",mm.vMin,mm.vMax);
       }
+      if (0 != pMM->vMin) { rmm.vMin= 1.0 / pMM->vMin; }
+      if (0 != pMM->vMax) { rmm.vMax= 1.0 / pMM->vMax; }
+      for (size_t i=0; i < pO->n1P; i++)
+      {  // HACK! assuming 1D equivalence
+         size_t j= i * pO->stride[0];  
+         size_t k= i * 3;
+         unsigned char r= 0, g=0, b= 0;
+         if (pS[j] > 0) //gEpsilon)
+         {
+            float t= rmm.vMax * pS[j];
+            g= 0x00 + t * 0xF0;
+            b= 0x40 + t * 0xBF;
+         }
+         else if (pS[j] < 0)
+         {
+            float t= rmm.vMin * pS[j];
+            g= 0x00 + t * 0xF0;
+            r= 0x40 + t * 0xBF;
+         }
+
+         pB[k+0]= r;
+         pB[k+1]= g;
+         pB[k+2]= b;
+      }
+      //pB[0]= pB[1]= pB[2]= 0xFF;
+      nB= saveBuff(pB, path, nB);
+      printf("saveSliceRGB(%s) - %zu bytes\n", path, nB);
+      free(pB);
+      return(nB);
    }
    return(0);
 } // saveSliceRGB

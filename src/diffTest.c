@@ -16,7 +16,7 @@ typedef struct
 
 static DiffTestContext gCtx={0,};
 
-const DiffScalar gM= 1.0;
+static MapSiteInfo gMSI;
 
 
 /***/
@@ -50,12 +50,12 @@ void release (DiffTestContext *pC)
 
 typedef struct
 {
-   const char *fs, *eol[2];
+   const char *fs, *eol;
 } FmtDesc;
 
 int dumpScalarRegion (char *pCh, int maxCh, const DiffScalar * pS, const MMV3I *pRegion, const Stride s[3])
 {
-   FmtDesc fd={"%.3G ","\n","\n"};
+   FmtDesc fd={"%.3G ","\n"};
    int nCh= 0;
    for (Index z= pRegion->vMin.z; z <= pRegion->vMax.z; z++)
    {
@@ -66,16 +66,16 @@ int dumpScalarRegion (char *pCh, int maxCh, const DiffScalar * pS, const MMV3I *
             const size_t i= x * s[0] + y * s[1] + z * s[2];
             nCh+= snprintf(pCh+nCh, maxCh-nCh, fd.fs, pS[i]);
          }
-         nCh+= snprintf(pCh+nCh, maxCh-nCh, fd.eol[0]);
+         nCh+= snprintf(pCh+nCh, maxCh-nCh, fd.eol);
       }
-      nCh+= snprintf(pCh+nCh, maxCh-nCh, fd.eol[1]);
+      nCh+= snprintf(pCh+nCh, maxCh-nCh, fd.eol);
    }
    return(nCh);
 } // dumpScalarRegion
 
 int dumpMapRegion (char *pCh, int maxCh, const D3MapElem * pM, const MMV3I *pRegion, const Stride s[3])
 {
-   FmtDesc fd={"0x%x ","\n","\n"};
+   FmtDesc fd={"0x%x ","\n"};
    int nCh= 0;
    for (Index z= pRegion->vMin.z; z <= pRegion->vMax.z; z++)
    {
@@ -86,9 +86,9 @@ int dumpMapRegion (char *pCh, int maxCh, const D3MapElem * pM, const MMV3I *pReg
             const size_t i= x * s[0] + y * s[1] + z * s[2];
             nCh+= snprintf(pCh+nCh, maxCh-nCh, fd.fs, pM[i]);
          }
-         nCh+= snprintf(pCh+nCh, maxCh-nCh, fd.eol[0]);
+         nCh+= snprintf(pCh+nCh, maxCh-nCh, fd.eol);
       }
-      nCh+= snprintf(pCh+nCh, maxCh-nCh, fd.eol[1]);
+      nCh+= snprintf(pCh+nCh, maxCh-nCh, fd.eol);
    }
    return(nCh);
 } // dumpMapRegion
@@ -122,24 +122,37 @@ typedef struct
    SearchResult  sr;
 } Test1Res;
 
+//strExtFmtNSMV(" m=(",")")
+
 uint testAn (Test1Res *pR, const TestParam *pP)
 {
    uint iT=0, iN= 0, iA= 0;
 
    if (initIsoW(gCtx.wPhase[0].w, pP->rD, pP->nHood, 0) > 0)
    {
-      MapSiteInfo msi={ gCtx.org.def.x/2, gCtx.org.def.y/2, gCtx.org.def.z/2, gM };
-      initFieldVCM(gCtx.pSR[0], &(gCtx.org), NULL, NULL, &msi);
+      initFieldVCM(gCtx.pSR[0], &(gCtx.org), NULL, NULL, &gMSI);
       deltaT();
       iT= diffProcIsoD3SxM(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), gCtx.wPhase, gCtx.pM, pP->iter, pP->nHood);
       pR->tProc= deltaT();
       iN= iT & 1;
-      // Search for Diffusion-time moment
-      StatRes1 r[3];
-      DiffScalar isovar= analyseField(r, gCtx.pSR[iN], &(gCtx.org));
-      printf("analyseField() - iso=%G, m=%G,%G,%G, v=%G,%G,%G\n", isovar, r[0].m, r[1].m, r[2].m, r[0].v, r[1].v, r[2].v);
-      DiffScalar Dt= sqrt(iT * 2 * pP->rD);
-      Dt= searchMin1(&(pR->sr), &(gCtx.ws), gCtx.pSR[iN], &(gCtx.org), gM, 0.5 * isovar, 0);
+
+      // Estimate Diffusion-time moment
+      AnResD3R2 a;
+      analyseField(&a, gCtx.pSR[iN], &(gCtx.org));
+
+      SMVal isovar= meanNSMV(a.var, 3);
+      SMVal Dt= searchMin1(&(pR->sr), &(gCtx.ws), gCtx.pSR[iN], &(gCtx.org), gMSI.v, 0.5 * isovar, 0);
+
+      char txt[256];
+      const int m= sizeof(txt)-1;
+      int n= 0;
+      n= strFmtNSMV(txt, m, "%.4G,", a.mean, 3);
+      printf("m=(%s)\n", txt);
+      n= strFmtNSMV(txt, m, "%.4G,", a.var, 3);
+      printf("v=(%s)\n", txt);
+//m=(%.4G,%.4G,%.4G) v=(%.4G,%.4G,%.4G) 
+//a.m[0], a.m[1], a.m[2], a.v[0], a.v[1], a.v[2], 
+      printf("analyseField() - mm=%G,%G sum=%G isoVar=%G Dt=%G\n", a.mm.vMin, a.mm.vMax, a.sum, isovar, Dt);
    }
    return(iT);
 } // testAn
@@ -168,12 +181,12 @@ void save (const char *basePath, const char *baseName, const DiffScalar *pS, con
    if (z >= 0)
    {
       n+= snprintf(path+n, m-n, "%s/N%02d_I%07d_Z%03d_%s", basePath, nHood, iter, z, baseName);
-      saveSliceRGB(path, pS, z, &(gCtx.org), pMM);
+      saveSliceRGB(path, pS+dotS3(0,0,z,gCtx.org.stride), &(gCtx.org), pMM);
    }
    else
    {
       n+= snprintf(path+n, m-n, "%s/N%02d_I%07d_%s", basePath, nHood, iter, baseName);
-      saveSliceRGB(path, pS, 0, &(gCtx.org), pMM);
+      saveSliceRGB(path, pS, &(gCtx.org), pMM);
    }
 } // save
 
@@ -204,7 +217,7 @@ void compareAnNHI (const U8 nHoods[], const U8 nNH, const uint step, const uint 
             printf("diffProc..%u %u iter %G sec (%G msec/iter) Dt=%G sad=%G\n", param.nHood, iT, pR->tProc, 1000*pR->tProc / iT, pR->sr.Dt, pR->sr.sad);
             iN= iT & 1;
             iA= iN ^ 1;
-            initAnalytic(gCtx.pSR[iA], &(gCtx.org), gM, pR->sr.Dt);
+            initAnalytic(gCtx.pSR[iA], &(gCtx.org), gMSI.v, pR->sr.Dt);
             //redCheck(&mm, gCtx.pSR[iN], gCtx.pSR[iA], 1);
             save("rgb", "NUM.rgb", gCtx.pSR[iN], param.nHood, param.iter, zSlice, NULL);
             save("rgb", "ANL.rgb", gCtx.pSR[iA], param.nHood, param.iter, zSlice, NULL);
@@ -220,7 +233,7 @@ void compareAnNHI (const U8 nHoods[], const U8 nNH, const uint step, const uint 
       pR= res[h];
       for (int i=step; i<=max; i+= step)
       {
-         printf("%2u %3u\t%5.03G\t%5.03G\t%7.05G\t%5.03G\t%5.03G\n", nHoods[h], i, pR->tProc, pR->sr.Dt, pR->sr.sad, gM-pR->sr.sad, pR->sr.Dt / pR->tProc);
+         printf("%2u %3u\t%5.03G\t%5.03G\t%7.05G\t%5.03G\t%5.03G\n", nHoods[h], i, pR->tProc, pR->sr.Dt, pR->sr.sad, gMSI.v-pR->sr.sad, pR->sr.Dt / pR->tProc);
          pR++;
       }
    }
@@ -240,22 +253,21 @@ int main (int argc, char *argv[])
 
    if (init(&gCtx,1<<8))
    {
-      MapSiteInfo msi;
       float f=-1;
-      msi.v= gM;
+      gMSI.v= 1.0;
 
       if (argc > 1)
       {
          const char *fileName= argv[1]; //"s(256,256,256)u8.raw";
          if (fileSize(fileName) > 0)
          {
-            f= mapFromU8Raw(gCtx.pM, &msi, &(gCtx.ws), fileName, 112, &(gCtx.org));
+            f= mapFromU8Raw(gCtx.pM, &gMSI, &(gCtx.ws), fileName, 112, &(gCtx.org));
          }
       }
       if (f <= 0)
       {
-         f= setDefaultMap(gCtx.pM, &(gCtx.org.def), 1);
-         scaleV3I(&(msi.c), &(gCtx.org.def), 0.5);
+         f= setDefaultMap(gCtx.pM, &(gCtx.org.def), 0);
+         scaleV3I(&(gMSI.c), &(gCtx.org.def), 0.5);
       }
 
       //pragma acc set device_type(acc_device_none) no effect ???
@@ -265,8 +277,8 @@ int main (int argc, char *argv[])
 
       if (f >= 0.99) // modeFlags & FLAG_NHTEST ???
       {
-         static const U8 nHoods[4]={6,14,18,26};
-         compareAnNHI(nHoods, sizeof(nHoods), 20, 100);
+         static const U8 nHoods[]={6};//,14,18,26};
+         compareAnNHI(nHoods, sizeof(nHoods), 20, 20);
       }
       else
       {
@@ -277,9 +289,9 @@ int main (int argc, char *argv[])
          param.nHood=26;
          param.iter= 100;
          param.rD=   0.5;
-         initFieldVCM(gCtx.pSR[0], &(gCtx.org), NULL, NULL, &msi);
+         initFieldVCM(gCtx.pSR[0], &(gCtx.org), NULL, NULL, &gMSI);
          //gCtx.pSR[0][ dotS3(127,128,128, gCtx.org.stride) ]= -1;
-         if (dumpR > 0) { dumpSMR(gCtx.pSR[0], gCtx.pM, &(msi.c), dumpR); }
+         if (dumpR > 0) { dumpSMR(gCtx.pSR[0], gCtx.pM, &(gMSI.c), dumpR); }
          reduct3_2_0(&rrN, gCtx.ws.p, gCtx.pSR[0], &(gCtx.org));
          printf("Initial SMM: %G, %G, %G\n", rrN.sum, rrN.mm.vMin, rrN.mm.vMax );
          resetFieldVCM(gCtx.pSR[iN], &(gCtx.org), gCtx.pM, &(gDefObsKV.k), gDefObsKV.v2[1]);
@@ -288,7 +300,7 @@ int main (int argc, char *argv[])
          iT= diffProcIsoD3SxM(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), gCtx.wPhase, gCtx.pM, param.iter, param.nHood);
          iN= iT & 1;
          resetFieldVCM(gCtx.pSR[iN], &(gCtx.org), gCtx.pM, NULL, 0);
-         if (dumpR > 0) { dumpSMR(gCtx.pSR[iN], NULL, &(msi.c), dumpR); }
+         if (dumpR > 0) { dumpSMR(gCtx.pSR[iN], NULL, &(gMSI.c), dumpR); }
          reduct3_2_0(&rrN, gCtx.ws.p, gCtx.pSR[iN], &(gCtx.org));
          printf("N%u I%u SMM: %G, %G, %G\n", param.nHood, iT, rrN.sum, rrN.mm.vMin, rrN.mm.vMax );
          save("rgb", "NRED.rgb", gCtx.ws.p, param.nHood, param.iter, -1, NULL);
