@@ -262,7 +262,22 @@ int main (int argc, char *argv[])
          const char *fileName= argv[1];
          if (fileSize(fileName) > 0)
          {
-            f= mapFromU8Raw(gCtx.pM, &gMSI, &(gCtx.ws), fileName, 112, &(gCtx.org));
+            RawTransMethodDesc rm={0};
+            RawTransInfo ri={0};
+
+#if 1
+            rm.method=   2;
+            rm.param[0]= 0.35;
+#else
+            rm.method=   1;
+            rm.param[0]= 107;
+#endif
+            f= mapFromU8Raw(gCtx.pM, &ri, &(gCtx.ws), fileName, &rm, &(gCtx.org));
+            if (f > 0)
+            {
+               gMSI.c= ri.site;
+               printf("site= (%d,%d,%d)\n", gMSI.c.x, gMSI.c.y, gMSI.c.z);
+            }
             mapID= -1;
          }
       }
@@ -286,11 +301,11 @@ int main (int argc, char *argv[])
       {
          TestParam param;
          RedRes     rrN;
-         uint      iT=0, iN=0, dumpR=0;
+         uint      iT=0, iN=0, testV=0, dumpR=0;
 
          //iT= 0; iN= iT & 1;
          param.nHood=26;
-         param.iter= 100;
+         param.iter= 50;
          param.rD=   0.5;
          initFieldVCM(gCtx.pSR[0], &(gCtx.org), NULL, NULL, &gMSI);
          if (dumpR > 0) { dumpSMR(gCtx.pSR[0], gCtx.pM, &(gMSI.c), dumpR); }
@@ -298,15 +313,14 @@ int main (int argc, char *argv[])
          reduct3_2_0(&rrN, gCtx.ws.p, gCtx.pSR[0], &(gCtx.org), 0);
          printf("Initial SMM: %G, %G, %G\n", rrN.sum, rrN.mm.vMin, rrN.mm.vMax );
          // Set NAN / -1 for test
-         resetFieldVCM(gCtx.pSR[0], &(gCtx.org), gCtx.pM, &(gDefObsKV.k), gDefObsKV.v2[1]);
+         if (testV > 0) { resetFieldVCM(gCtx.pSR[0], &(gCtx.org), gCtx.pM, &(gDefObsKV.k), gDefObsKV.v2[1]); }
 
          initIsoW(gCtx.wPhase[0].w, 0.5, param.nHood, 0);
          iT= diffProcIsoD3SxM(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), gCtx.wPhase, gCtx.pM, param.iter, param.nHood);
          iN= iT & 1;
 
          // Clear NAN / -1 for tally
-         resetFieldVCM(gCtx.pSR[iN], &(gCtx.org), gCtx.pM, NULL, 0);
-
+         if (testV > 0) { resetFieldVCM(gCtx.pSR[iN], &(gCtx.org), gCtx.pM, NULL, 0); }
          if (dumpR > 0) { dumpSMR(gCtx.pSR[iN], NULL, &(gMSI.c), dumpR); }
 
          const char mode= 0, *name="NRED.rgb";

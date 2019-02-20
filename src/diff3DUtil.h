@@ -14,6 +14,17 @@ typedef struct
    D3MapElem m, v;   // Mask and compare value
 } D3MapKey;
 
+typedef struct
+{
+   U8 method, ext[3];
+   float param[2];
+} RawTransMethodDesc;
+
+typedef struct
+{
+   V3I site;
+} RawTransInfo;
+
 
 /***/
 
@@ -27,6 +38,7 @@ extern DiffScalar initIsoW (DiffScalar w[], DiffScalar r, uint nHood, uint f);
 
 extern float setDefaultMap (D3MapElem *pM, const V3I *pD, const uint id);
 
-extern float mapFromU8Raw (D3MapElem *pM, MapSiteInfo *pMI, const MemBuff *pWS, const char *path, U8 t, const DiffOrg *pO);
+extern float mapFromU8Raw (D3MapElem *pM, RawTransInfo *pRI, const MemBuff *pWS, const char *path, 
+                              const RawTransMethodDesc *pRM, const DiffOrg *pO);
 
 #endif // DIFF_3D_UTIL_H

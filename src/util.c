@@ -52,25 +52,27 @@ size_t fileSize (const char * const path)
 size_t loadBuff (void * const pB, const char * const path, const size_t bytes)
 {
    FILE *hF= fopen(path,"r");
+   size_t r= 0;
    if (hF)
    {
-      size_t r= fread(pB, 1, bytes, hF);
+      r= fread(pB, 1, bytes, hF);
       fclose(hF);
-      if (r == bytes) { return(r); }
+      if (bytes != r) { printf("WARNING: loadBuff(%s,%zu) - %zu\n", path, bytes, r); }
    }
-   return(0);
+   return(r);
 } // loadBuff
 
 size_t saveBuff (const void * const pB, const char * const path, const size_t bytes)
 {
    FILE *hF= fopen(path,"w");
+   size_t r= 0;
    if (hF)
    {
-      size_t r= fwrite(pB, 1, bytes, hF);
+      r= fwrite(pB, 1, bytes, hF);
       fclose(hF);
-      if (r == bytes) { return(r); }
+      if (bytes != r) { printf("WARNING: saveBuff(%s,%zu) - %zu\n", path, bytes, r); }
    }
-   return(0);
+   return(r);
 } // saveBuff
 
 SMVal deltaT (void)

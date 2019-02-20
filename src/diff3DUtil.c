@@ -7,8 +7,7 @@
 typedef struct
 {
    V3I   def;
-   Index stride[3];
-   Index step[26];
+   Stride stride[3], step[26];
    MMV3I mm;
    size_t n;
 } MapOrg;
@@ -36,7 +35,7 @@ static size_t procMapU8 (U8 *pR, const U8 *pS, size_t n, const U8 t, const U8 v[
 static int findIdxT (const size_t h[], int maxH, size_t t)
 {
    size_t s=0;
-   int i= 0;
+   int i= 0;//printf("%d:%zu\n", i, s); 
    do { s+= h[i]; i+= (s < t); } while ((s < t) && (i < maxH));
    return(i);
 } // findIdxT
@@ -49,20 +48,21 @@ static int popT (const U8 *pS, const size_t n, double popF)
    return findIdxT(h, 256, popF);
 } // popT
 
-static size_t permTransMapU8 (U8 *pR, const U8 *pS, const size_t n, const float f, const int maxPerm)
+static size_t permTransMapU8 (U8 *pR, const U8 *pS, const size_t n, const float popF, const int maxPerm, const int offset)
 {
    size_t s= 0;
-   const int iT= popT(pS, n, f);
+   const int iT= popT(pS, n, popF);
 
+   printf("permTransMapU8() - %G -> %d\n", popF, iT);
    if ((iT > 0) && (iT < 256))
    {
-      double lm[2];
-      lm[0]= (maxPerm - 0) / (0 - iT);
+      float lm[2];
+      lm[0]= (float)(maxPerm - 0) / (0 - iT);
       lm[1]= maxPerm;
       for (size_t i= 0; i<n; i++)
       {
          int v= lm[0] * pS[i] + lm[1]; 
-         if (v >= 1) { pR[i]= MIN(v,maxPerm); s++; } else { pR[i]= 0; }
+         if (v >= 1) { pR[i]= MIN(v,maxPerm)+offset; s++; } else { pR[i]= 0; }
       }
    }
    return(s);
@@ -72,19 +72,18 @@ static size_t map6TransferU8 (D3S6MapElem * restrict pM, const U8 *pU8, const si
 {
 static const D3S6MapElem v6[2]= { (1<<6)-1, 0 };
    return( procMapU8(pM, pU8, n, t, v6) / v6[0] );
-} // map26TransferU8
+} // map6TransferU8
 
-static size_t mapTransferU8 (D3MapElem * restrict pM, const U8 *pU8, const size_t n, const U8 t)
+static size_t mapTransferU8 (D3MapElem * restrict pM, const U8 *pU8, const size_t n)
 {
    const D3MapElem v26[2]= { -1, (1<<26)-1 };
    size_t s[2]={0,0};
    for (size_t i=0; i<n; i++)
    { 
-      int c= (pU8[i] > t);
+      int c= (0 == pU8[i]);
       s[c]++;
       pM[i]= v26[c]; 
    }
-   printf("mapTransferU8() - v26[]=0x%x,0x%x  t=%u %zu %zu %zu\n", v26[0], v26[1], t, s[0], s[1], s[0]+s[1]);
    return( s[0] );
 } // mapTransferU8
 
@@ -119,42 +118,6 @@ static void sealBoundaryMap (D3MapElem *pM, const MapOrg *pO, const D3MapElem ex
    }
 } // sealBoundaryMap
 
-static void genRevM (D3MapElem revM[], char n)
-{
-   const char revD[2]={+1,-1}; // even +1, odd -1 : 0->1, 1->0, 2->3, 3->2 ...
-   // build reverse mask table
-   for (int i=0; i < n; i++)
-   {
-      revM[i]= ~( 1 << ( i + revD[ (i&1) ] ) );
-   }
-} // genRevM
-
-static void adjustMapN (D3MapElem * const pM, const MapOrg *pO, const char n, const D3MapElem extMask)
-{
-   D3MapElem revM[26];//, u=0;
-   const MMV3I *pMM= &(pO->mm);
-
-   genRevM(revM,n);
-   for (Index z= pMM->vMin.z; z < pMM->vMax.z; z++)
-   {
-      for (Index y= pMM->vMin.y; y < pMM->vMax.y; y++)
-      {
-         for (Index x= pMM->vMin.x; x < pMM->vMax.x; x++)
-         {
-            const size_t i= dotS3(x,y,x,pO->stride);
-            if (0 == (pM[i] & extMask))
-            {  // obstruction
-               for (char j=0; j < n; j++)
-               {  // adjust all available neighbours, preventing flux into site
-                  if (pM[i] & (1<<j)) { pM[i + pO->step[j] ] &= revM[j]; }
-               }
-               pM[i]= 0; // prevent processing of obstructed sites
-            }
-         }
-      }
-   }
-} // adjustMapN
-
 void dumpDistBC (const D3MapElem * pM, const size_t nM)
 {
    size_t d1[27], d2[7], s= 0;
@@ -176,81 +139,133 @@ void dumpDistBC (const D3MapElem * pM, const size_t nM)
    printf("\nsum=%zu\n: ",s);
 } // dumpDistBC
 
-void dumpDMMBC (const U8 *pU8, const D3MapElem * pM, const size_t n)
+void dumpDMMBC (const U8 *pU8, const D3MapElem * pM, const size_t n, const uint mask)
 {
-   size_t d[33];
+   size_t d[33], t= 0;
    MMU8 mm[33];
    for (int i=0; i<=32; i++) { mm[i].vMin= 0xFF; mm[i].vMax= 0; d[i]= 0; }
    for (size_t i=0; i < n; i++)
    {
-      uint b= bitCountZ( pM[i] );
+      uint b= bitCountZ( pM[i] & mask );
       d[b]++;
+      t+= ((0 == b) && (pU8[i] > 0));
       mm[b].vMin= MIN(mm[b].vMin, pU8[i]);
       mm[b].vMax= MAX(mm[b].vMax, pU8[i]);
    }
+   printf("anomalous=%d\n", t);
    for (int i=0; i<=32; i++)
    {
       if (mm[i].vMax >= mm[i].vMin) { printf("%2u: %8zu %3u %3u\n", i, d[i], mm[i].vMin, mm[i].vMax); }
    }
 } // dumpDMMBC
 
-void repairHack (D3MapElem * restrict pM, const U8 *pU8, const size_t n, const U8 t)
+void checkComb (const V3I v[2], const Stride stride[3], const D3MapElem * pM)
 {
-   D3MapElem m[]={ -1, 0 };
-   for (size_t i= 0; i<n; i++) { pM[i]&= m[ (pU8[i] > t) ]; }
-} // repairHack
+   for (int k=0; k<2; k++)
+   {
+      for (int j=0; j<2; j++)
+      {
+         for (int i=0; i<2; i++)
+         {
+            const D3MapElem m= pM[ dotS3(v[i].x, v[j].y, v[k].z, stride) ];
+            U8 r= m >> 26;
+            uint m6= m & ((1<<6)-1);
+            uint m12= (m>>6) & ((1<<12)-1);
+            uint m8= (m>>18) & ((1<<8)-1);
+            printf("(%3d,%3d,%3d) : %u ", v[i].x, v[j].y, v[k].z, r);
+            printf("m: 0x%x(%u) 0x%x(%u) 0x%x(%u) ", m6, bitCountZ(m6), m12, bitCountZ(m12), m8, bitCountZ(m8));
+            dumpM6(m,"\n"); 
+         }
+      }
+   }
+} // checkComb
 
-float processMap (D3MapElem * pM, MapSiteInfo * pMSI, U8 * pU8, const MapOrg * pO, U8 t)
+static void constrainNH (D3MapElem * restrict pM, const U8 *pU8, const size_t n, 
+                     const Stride step[], const D3MapElem revM[], const U8 nNH)
+{
+   size_t badR= 0;
+   const D3MapElem nhM= (1 << nNH) - 1;
+   for (size_t i= 0; i<n; i++)
+   {
+      U8 r= pU8[i];
+      if ((0 == r) ^ (0 == (pM[i] & nhM) ))
+      {
+         if (0 == r)
+         {
+            for (U8 j=0; j < nNH; j++)
+            {  // adjust all available neighbours, preventing flux into site
+               if (pM[i] & (1<<j)) { pM[ i + step[j] ] &= revM[j]; }
+            }
+            pM[i]= 0;
+         }
+         else { badR++; }
+      }
+   }
+   if (badR > 0) { printf("constrainNH() - badR=%zu\n", badR); }
+} // constrainNH
+
+static void genRevM (D3MapElem revM[], char n)
+{
+   const char revD[2]={+1,-1}; // even +1, odd -1 : 0->1, 1->0, 2->3, 3->2 ...
+   // build reverse mask table
+   for (int i=0; i < n; i++)
+   {
+      revM[i]= ~( 1 << ( i + revD[ (i&1) ] ) );
+   }
+} // genRevM
+
+static void constrainMapNH (D3MapElem * const pM, const U8 * pU8, const MapOrg *pO, const U8 nNH)
+{
+   D3MapElem revM[26];
+
+   if (nNH <= 26)
+   {
+      genRevM(revM,nNH);
+      constrainNH(pM, pU8, pO->n, pO->step, revM, nNH);
+   }
+} // constrainMapNH
+
+float processMap (D3MapElem * pM, V3I * pV, const U8 * pU8, const MapOrg * pO)
 {
    size_t r=-1, s;
 
    printf("transfer...\n");
-   s= mapTransferU8(pM, pU8, pO->n, t );
-   dumpDMMBC(pU8, pM, pO->n);
+   s= mapTransferU8(pM, pU8, pO->n);
+   dumpDMMBC(pU8, pM, pO->n, -1);
 
    printf("seal...\n");
    sealBoundaryMap(pM, pO, gExtMask);
-   dumpDMMBC(pU8, pM, pO->n);
+   dumpDMMBC(pU8, pM, pO->n, (1<<26)-1);
 
-   printf("adjust...\n");
-   adjustMapN(pM, pO, 26, gExtMask);
-   //repairHack(pM, pU8, pO->n, t);
-   dumpDMMBC(pU8, pM, pO->n);
+   printf("constrain...\n");
+   constrainMapNH(pM, pU8, pO, 26);
+   dumpDMMBC(pU8, pM, pO->n, (1<<26)-1);
 
-   //dumpDistBC(pM, pO->n);
-   //printf("processMap() - %zu %zu\n", s, pO->n);
-
-   if (pMSI)
+   if (pV)
    {
-      V3I i, c, m;
+      V3I i, c;
       size_t mR=-1, mS=0;
       static const U8 v2[2]={0,1};
       MMV3I mm;
       I32 zS=-1;
-
-      procMapU8(pU8, pU8, pO->n, t, v2);
+      U8 t= 1;
 
       c.x= pO->def.x / 2;
       c.y= pO->def.y / 2;
       c.z= pO->def.z / 2;
 
       adjustMMV3I(&mm, &(pO->mm), -1);
-      pMSI->c= c;
-      i.z= c.z;
       for (i.z=mm.vMin.z; i.z < mm.vMax.z; i.z++)
       {
-         size_t s= 0, b= i.z * pO->stride[2];
-         for (int j= 0; j < pO->stride[2]; j++) { s+= (0 == pU8[b+j]); }
-         if (s > mS) { zS= i.z; }
          for (i.y=mm.vMin.y; i.y < mm.vMax.y; i.y++)
          {
             for (i.x=mm.vMin.x; i.x < mm.vMax.x; i.x++)
             {
-               const size_t j= i.x * pO->stride[0] + i.y * pO->stride[1] + i.z * pO->stride[2];
-               if (0 == pU8[j])
+               const size_t j= dotS3(i.x, i.y, i.z, pO->stride);
+               if (pU8[j] >= t)
                {
                   size_t d= d2I3( i.x - c.x, i.y - c.y, i.z - c.z );
-                  if (d < r) { r= d; pMSI->c= i; }
+                  if (d < r) { r= d; *pV= i; t= pU8[j]; }
                }
             }
          }
@@ -439,8 +454,10 @@ float setDefaultMap (D3MapElem *pM, const V3I *pD, const uint id)
    return(1);
 } // setDefaultMap
 
-float mapFromU8Raw (D3MapElem *pM, MapSiteInfo *pMSI, const MemBuff *pWS, const char *path, U8 t, const DiffOrg *pO)
+float mapFromU8Raw (D3MapElem *pM, RawTransInfo *pRI, const MemBuff *pWS, const char *path, 
+      const RawTransMethodDesc *pRM, const DiffOrg *pO)
 {
+   float r=0;
    size_t bytes= fileSize(path);
    char m;
    MapOrg org;
@@ -451,8 +468,24 @@ float mapFromU8Raw (D3MapElem *pM, MapSiteInfo *pMSI, const MemBuff *pWS, const 
       printf("mapFromU8Raw() - %G%cBytes\n", binSize(&m, bytes), m);
       if (bytes >= org.n)
       {
-         return processMap(pM, pMSI, pWS->p, &org, t);
+         const U8 permM= (1<<6)-1, offset=0; //// 0xFF-permM
+         switch(pRM->method)
+         {
+            case 1 :
+            {
+               const U8 v2[2]={permM,0};
+               procMapU8(pWS->p, pWS->p, org.n, pRM->param[0], v2); break;
+            }
+            case 2 : permTransMapU8(pWS->p, pWS->p, org.n, pRM->param[0], permM, offset); break;
+         }
+#if 0
+         const char *name= "perm256u8.raw";
+         bytes= saveBuff(pWS->p, name, org.n);
+         //printf("%s %zu Bytes\n", name, t);
+         printf("%s %G%cBytes\n", name, binSize(&m,bytes), m);
+#endif
+         r= processMap(pM, &(pRI->site), pWS->p, &org);
       }
    }
-   return(0);
+   return(r);
 } // mapFromU8Raw
