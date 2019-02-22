@@ -195,6 +195,16 @@ extern SMVal meanNSMV (const SMVal v[], const size_t n)
    return(0);
 } // meanNSMV
 
+
+U8 bitsValZ (const size_t v)
+{
+   const float a= 1.0 - ( 1.0 / ((size_t)1 << 63) );
+   //float f= log2f(v); 
+   //U8 r= f + a;
+   //printf("bitsVal() - log2(%u)=%G -> %G -> %u\n", v, f, f+a, r);
+   return(log2f(v) + a);
+} // bitsValZ
+
 #ifdef UTIL_TEST
 
 int utilTest (void)

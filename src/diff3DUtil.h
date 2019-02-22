@@ -7,6 +7,9 @@
 
 #include "diff3D.h"
 
+#define D3UF_  0
+#define D3UF_PERM_SAVE  (1<<7)
+
 typedef struct { V3I c; float v; } MapSiteInfo;
 
 typedef struct
@@ -16,12 +19,13 @@ typedef struct
 
 typedef struct
 {
-   U8 method, ext[3];
+   U8 method, nHood, maxPermLvl, flags;
    float param[2];
 } RawTransMethodDesc;
 
 typedef struct
 {
+   U8 nHood, maxPermSet, permAlign, pad[1];
    V3I site;
 } RawTransInfo;
 
@@ -37,6 +41,8 @@ extern size_t initDiffOrg (DiffOrg *pO, uint def, uint nP);
 extern DiffScalar initIsoW (DiffScalar w[], DiffScalar r, uint nHood, uint f);
 
 extern float setDefaultMap (D3MapElem *pM, const V3I *pD, const uint id);
+
+extern Bool32 getProfileRM (RawTransMethodDesc *pRM, U8 id, U8 f);
 
 extern float mapFromU8Raw (D3MapElem *pM, RawTransInfo *pRI, const MemBuff *pWS, const char *path, 
                               const RawTransMethodDesc *pRM, const DiffOrg *pO);

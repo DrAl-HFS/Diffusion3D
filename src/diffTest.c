@@ -265,13 +265,8 @@ int main (int argc, char *argv[])
             RawTransMethodDesc rm={0};
             RawTransInfo ri={0};
 
-#if 1
-            rm.method=   2;
-            rm.param[0]= 0.35;
-#else
-            rm.method=   1;
-            rm.param[0]= 107;
-#endif
+            getProfileRM(&rm, 2, D3UF_PERM_SAVE);   // 1
+
             f= mapFromU8Raw(gCtx.pM, &ri, &(gCtx.ws), fileName, &rm, &(gCtx.org));
             if (f > 0)
             {
