@@ -7,6 +7,10 @@
 
 #include "diff3D.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define D3UF_  0
 #define D3UF_PERM_SAVE  (1<<7)
 
@@ -46,5 +50,9 @@ extern Bool32 getProfileRM (RawTransMethodDesc *pRM, U8 id, U8 f);
 
 extern float mapFromU8Raw (D3MapElem *pM, RawTransInfo *pRI, const MemBuff *pWS, const char *path, 
                               const RawTransMethodDesc *pRM, const DiffOrg *pO);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif // DIFF_3D_UTIL_H

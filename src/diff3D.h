@@ -7,6 +7,9 @@
 
 #include "util.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define DIFF_DIM (3)
 
@@ -91,5 +94,9 @@ extern uint getBoundaryM26 (Index x, Index y, Index z, const MMV3I *pMM);
 extern uint getBoundaryM26V (Index x, Index y, Index z, const MMV3I *pMM); // verbose (debug) version
 
 extern void test (const DiffOrg * pO);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif // DIFF_3D_H

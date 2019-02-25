@@ -15,8 +15,12 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // General compiler tweaks
-#pragma clang diagnostic ignored "-Wmissing-field-initializers"
+//pragma clang diagnostic ignored "-Wmissing-field-initializers"
 
 #ifndef SWAP
 #define SWAP(Type,a,b) { Type tmp= (a); (a)= (b); (b)= tmp; }
@@ -104,5 +108,8 @@ extern int strFmtNSMV (char s[], const int maxS, const char *fmt, const SMVal v[
 extern SMVal sumNSMV (const SMVal v[], const size_t n);
 extern SMVal meanNSMV (const SMVal v[], const size_t n);
 
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif // UTIL_H
