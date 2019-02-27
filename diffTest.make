@@ -1,6 +1,6 @@
 CC = pgcc -c11
 CXX = pgc++ -std=c++11
-#ACCFLAGS = -O4 -Mautoinline -acc=verystrict -ta=host,multicore,tesla -Minfo=all -mp
+#MAXFLAGS = -O4 -Mautoinline -acc=verystrict -ta=host,multicore,tesla -Minfo=all -mp
 #FAST = -O2 -Mautoinline -acc=verystrict
 ACCFLAGS = -Mautoinline -acc=verystrict -ta=tesla
 
@@ -12,18 +12,34 @@ CCOUT := $(shell $(CC) 2>&1)
 
 SRC_DIR=src
 HDR_DIR=$(SRC_DIR)
+# OBJ_DIR= - output paths not supported!
 
 SRC:= $(shell ls $(SRC_DIR)/*.c)
 OBJ:= $(SRC:$(SRC_DIR)/%.c=%.o)
 
+
+### Phony Targets for building variants	###
+.PHONY: opt dbg all gnu
+
+opt: $(TARGET)
+dbg: $(TARGET)
+all: clean $(TARGET)
+
+# NB - Must specify opt level for pgcc (else garbage output)
+OPTFLAGS= -O2
 opt: OPTFLAGS= -O4
 dbg: OPTFLAGS= -g -Minfo=acc
+
+gnu: CC= gcc -std=c11 -pedantic -Werror
+gnu: ACCFLAGS= 
+# -fopenacc # requires >=GCC6 ?
+gnu: clean $(TARGET)
 
 
 ### Minimal rebuild rules ###
 
 # CAVEAT EMPTOR: it seems that when using header dependancy, 
-# every source file MUST have corresponding header or make breaks...
+# every source file MUST have corresponding header or something breaks...
 
 %.o: $(SRC_DIR)/%.c $(HDR_DIR)/%.h
 	$(CC) $(OPTFLAGS) $(ACCFLAGS) $< -c
@@ -34,12 +50,8 @@ dbg: OPTFLAGS= -g -Minfo=acc
 $(TARGET): $(OBJ)
 	$(CC) $(OPTFLAGS) $(ACCFLAGS) $^ -o $@
 
-all: $(TARGET)
-opt: $(TARGET)
-dbg: $(TARGET)
 
-
-### Phony Targets for building variants	###
+### Phony Targets for odd jobs	###
 .PHONY: run map clean
 
 run: $(TARGET)
