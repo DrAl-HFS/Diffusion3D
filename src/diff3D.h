@@ -33,9 +33,9 @@ typedef struct
 } DiffOrg;
 
 // Flags describing local structure
-typedef unsigned char D3S6MapElem, D3S8MapElem;
-typedef ushort D3S14MapElem;
-typedef uint D3MapElem;
+typedef U8 D3S6MapElem, D3S8MapElem;
+typedef U16 D3S14MapElem;
+typedef U32 D3MapElem;
 
 // Isotropic weights
 typedef struct
@@ -63,35 +63,35 @@ typedef struct
 
 // 6-point/2-weight stencil "3D Von-Neumann neighbourhood"
 // NB 8bit map entries & no weight padding
-extern uint diffProcIsoD3S6M 
+extern U32 diffProcIsoD3S6M 
 (
    DiffScalar * restrict pR,  // Result field(s)
    DiffScalar * restrict pS,  // Source field(s)
    const DiffOrg * pO,        // descriptor
    const D3S6IsoWeights * pW, // [pO->nPhase]
    const D3S6MapElem *pM,     // map (corresponding to scalar fields) describing structure
-   const uint  nI   // iterations
+   const U32  nI   // iterations
 );
 
 // Other stencils accessed through common interface
 // NB 32bit map entries and all weights padded 
-uint diffProcIsoD3SxM
+U32 diffProcIsoD3SxM
 (
    DiffScalar * restrict pR,  // Result field(s)
    DiffScalar * restrict pS,  // Source field(s)
    const DiffOrg        * pO, // descriptor
    const D3IsoWeights * pW,
    const D3MapElem    * pM,
-   const uint nI,
-   const uint nHood
+   const U32 nI,
+   const U32 nHood
 );
 
 // Expand 6 (-+strideXYZ) steps to 26 neighbourhood
 extern void diffSet6To26 (Stride s26[]);
 
 // Boundary check coordinates against the specified min-max volume and return flag mask of permissible memory accesses 
-extern uint getBoundaryM26 (Index x, Index y, Index z, const MMV3I *pMM);
-extern uint getBoundaryM26V (Index x, Index y, Index z, const MMV3I *pMM); // verbose (debug) version
+extern U32 getBoundaryM26 (Index x, Index y, Index z, const MMV3I *pMM);
+extern U32 getBoundaryM26V (Index x, Index y, Index z, const MMV3I *pMM); // verbose (debug) version
 
 extern void test (const DiffOrg * pO);
 

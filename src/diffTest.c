@@ -1,6 +1,6 @@
 // diffTest.c - 3D Diffusion under OpenACC
 // https://github.com/DrAl-HFS/Diffusion3D.git
-// (c) Diffusion3D Project Contributors Jan 2019
+// (c) Diffusion3D Project Contributors Jan-Mar 2019
 
 #include "diffTestUtil.h"
 
@@ -21,7 +21,7 @@ static MapSiteInfo gMSI;
 
 /***/
 
-Bool32 init (DiffTestContext *pC, uint def)
+Bool32 init (DiffTestContext *pC, U32 def)
 {
    initHack();
    if (initDiffOrg(&(pC->org), def, 1))
@@ -29,7 +29,7 @@ Bool32 init (DiffTestContext *pC, uint def)
       size_t b1M= pC->org.n1F * sizeof(*(pC->pM));
       size_t b1B= pC->org.n1B * sizeof(*(pC->pSR));
       size_t b1W= pC->org.n1F * sizeof(*(pC->pSR));
-      uint nB= 0;
+      U32 nB= 0;
 
       pC->pM= malloc(b1M);
       pC->ws.bytes=  b1W; // 1<<28; ???
@@ -112,7 +112,7 @@ void dumpSMR (const DiffScalar * pS, const D3MapElem * pM, const V3I *pC, int a)
 
 typedef struct
 {
-   uint nHood, iter;
+   U32 nHood, iter;
    DiffScalar  rD;
 } TestParam;
 
@@ -124,9 +124,9 @@ typedef struct
 
 //strExtFmtNSMV(" m=(",")")
 
-uint testAn (Test1Res *pR, const TestParam *pP)
+U32 testAn (Test1Res *pR, const TestParam *pP)
 {
-   uint iT=0, iN= 0, iA= 0;
+   U32 iT=0, iN= 0, iA= 0;
 
    if (initIsoW(gCtx.wPhase[0].w, pP->rD, pP->nHood, 0) > 0)
    {
@@ -157,7 +157,7 @@ uint testAn (Test1Res *pR, const TestParam *pP)
    return(iT);
 } // testAn
 
-void redCheck (MMSMVal *pMM, const DiffScalar *pN, const DiffScalar *pA, uint f)
+void redCheck (MMSMVal *pMM, const DiffScalar *pN, const DiffScalar *pA, U32 f)
 {
    RedRes rrN, rrA;
    SMVal dt;
@@ -172,7 +172,7 @@ void redCheck (MMSMVal *pMM, const DiffScalar *pN, const DiffScalar *pA, uint f)
    if (f & 1) { printf("MM: N=%G,%G A=%G,%G %Gsec\n", rrN.mm.vMin, rrN.mm.vMax, rrA.mm.vMin, rrA.mm.vMax, dt); }
 } // redCheck
 
-void save (const char *basePath, const char *baseName, const DiffScalar *pS, const uint nHood, const uint iter, const int z, const MMSMVal *pMM)
+void save (const char *basePath, const char *baseName, const DiffScalar *pS, const U32 nHood, const U32 iter, const int z, const MMSMVal *pMM)
 {
    char path[256];
    const int m= sizeof(path)-1;
@@ -190,11 +190,11 @@ void save (const char *basePath, const char *baseName, const DiffScalar *pS, con
    }
 } // save
 
-void compareAnNHI (const U8 nHoods[], const U8 nNH, const uint step, const uint max)
+void compareAnNHI (const U8 nHoods[], const U8 nNH, const U32 step, const U32 max)
 {
    TestParam   param;
    Test1Res    res[4][5], *pR;
-   uint        iT, iN, iA;
+   U32        iT, iN, iA;
 
    for (U8 h=0; h<nNH; h++)
    {
@@ -254,7 +254,7 @@ int main (int argc, char *argv[])
    if (init(&gCtx,1<<8))
    {
       float f=-1;
-      uint mapID= 1;
+      U32 mapID= 1;
       gMSI.v= 1.0;
 
       if (argc > 1)
@@ -294,9 +294,9 @@ int main (int argc, char *argv[])
       }
       else
       {
-         TestParam param;
+         TestParam  param;
          RedRes     rrN;
-         uint      iT=0, iN=0, testV=0, dumpR=0;
+         U32        iT=0, iN=0, testV=0, dumpR=0;
 
          //iT= 0; iN= iT & 1;
          param.nHood=26;

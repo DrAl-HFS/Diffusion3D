@@ -1,6 +1,6 @@
 // util.c - 3D Diffusion under OpenACC
 // https://github.com/DrAl-HFS/Diffusion3D.git
-// (c) Diffusion3D Project Contributors Jan 2019
+// (c) Diffusion3D Project Contributors Jan-Mar 2019
 
 #include "util.h"
 
@@ -107,10 +107,10 @@ void statMom3AddW (StatMomD3R2 * const pS, const SMVal x, const SMVal y, const S
    pS->m2[5]+= y * x * w;
 } // statMom3AddW
 
-uint statMom1Res1 (StatResD1R2 * const pR, const StatMomD1R2 * const pS, const SMVal dof)
+U32 statMom1Res1 (StatResD1R2 * const pR, const StatMomD1R2 * const pS, const SMVal dof)
 {
    StatResD1R2 r={ 0, 0 };
-   uint o= 0;
+   U32 o= 0;
    if (pS && (pS->m[0] > 0))
    {
       r.m= pS->m[1] / pS->m[0];
@@ -126,9 +126,9 @@ uint statMom1Res1 (StatResD1R2 * const pR, const StatMomD1R2 * const pS, const S
    return(o);
 } // statMom1Res1
 
-uint statMom3Res1 (StatResD1R2 r[3], const StatMomD3R2 * const pS, const SMVal dof)
+U32 statMom3Res1 (StatResD1R2 r[3], const StatMomD3R2 * const pS, const SMVal dof)
 {
-   uint o= 0;
+   U32 o= 0;
    if (pS && (pS->m0 > 0))
    {
       for (int i= 0; i < 3; i++) { r[i].m= pS->m1[i] / pS->m0; }
@@ -155,7 +155,7 @@ static const char m[]=" KMGTEP";
    return( (float)s / (1 << (10 * i)) );
 } // binSize
 
-uint bitCountZ (size_t u)
+U32 bitCountZ (size_t u)
 {
 static const U8 n4b[]=
 {
@@ -164,7 +164,7 @@ static const U8 n4b[]=
    1, 2, 2, 3, // 1000 1001 1010 1011
    2, 3, 3, 4  // 1100 1101 1110 1111
 };
-	uint	c=0;
+	U32	c=0;
 
 	do
 	{

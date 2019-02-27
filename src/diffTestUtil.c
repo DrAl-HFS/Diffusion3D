@@ -3,6 +3,10 @@
 // (c) Diffusion3D Project Contributors Jan 2019
 
 #include "diffTestUtil.h"
+//#include <math.h>
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 typedef struct { DiffScalar x, y; } SearchPoint;
 
@@ -90,7 +94,7 @@ size_t resetFieldVCM (DiffScalar * pS, const DiffOrg *pO, const D3MapElem *pM, c
 
 float d2F3 (float dx, float dy, float dz) { return( dx*dx + dy*dy + dz*dz ); }
 
-float setDiffIsoK (DiffScalar k[2], const DiffScalar Dt, const uint dim)
+float setDiffIsoK (DiffScalar k[2], const DiffScalar Dt, const U32 dim)
 {
    const DiffScalar msd= 2 * Dt; // mean squared distance = variance
    k[0]= pow(2 * M_PI * msd, -0.5 * dim);
@@ -281,7 +285,7 @@ DiffScalar searchMin1
 (
    SearchResult *pR, const MemBuff * pWS,
    const DiffScalar *pS, const DiffOrg *pO,
-   const DiffScalar ma, const DiffScalar Dt, const uint f
+   const DiffScalar ma, const DiffScalar Dt, const U32 f
 )
 {
    DiffScalar  *pTR= pWS->p;
@@ -524,7 +528,7 @@ SMVal relDiffStrideNS (DiffScalar * pR, const DiffScalar * pS1, const DiffScalar
 } // relDiffStrideNS
 */
 
-void dumpM6 (uint m6, const char *e)
+void dumpM6 (U32 m6, const char *e)
 {
    char a[]="XYZ";
    char s[]="-+";
@@ -535,7 +539,7 @@ void dumpM6 (uint m6, const char *e)
    if (e) { printf("%s", e); }
 } // dumpM6
 
-void dumpM8 (uint m8, const char *e)
+void dumpM8 (U32 m8, const char *e)
 {
    char a[]="XYZ";
    char s[]="-+";
@@ -545,3 +549,65 @@ void dumpM8 (uint m8, const char *e)
    }
    if (e) { printf("%s", e); }
 } // dumpM6
+
+void dumpDistBC (const D3MapElem * pM, const size_t nM)
+{
+   size_t d1[27], d2[7], s= 0;
+   for (int i=0; i<=26; i++) { d1[i]= 0; }
+   for (int i=0; i<=6; i++) { d2[i]= 0; }
+   for (size_t i=0; i<nM; i++)
+   {
+      U32 b= bitCountZ( pM[i] & ((1<<26)-1) );
+      d1[b]++;
+      b= bitCountZ( pM[i] >> 26 );
+      d2[b]++;
+   }
+   printf("BitCountDist: ");
+   s= 0;
+   for (int i=0; i<=26; i++) { printf("%zu ", d1[i]); s+= d1[i]; }
+   printf("\nsum=%zu\nExtDist: ",s);
+   s= 0;
+   for (int i=0; i<=6; i++) { printf("%zu ", d2[i]); s+= d2[i]; }
+   printf("\nsum=%zu\n: ",s);
+} // dumpDistBC
+
+void dumpDMMBC (const U8 *pU8, const D3MapElem * pM, const size_t n, const U32 mask)
+{
+   size_t d[33], t= 0;
+   MMU8 mm[33];
+   for (int i=0; i<=32; i++) { mm[i].vMin= 0xFF; mm[i].vMax= 0; d[i]= 0; }
+   for (size_t i=0; i < n; i++)
+   {
+      U32 b= bitCountZ( pM[i] & mask );
+      d[b]++;
+      t+= ((0 == b) && (pU8[i] > 0));
+      mm[b].vMin= MIN(mm[b].vMin, pU8[i]);
+      mm[b].vMax= MAX(mm[b].vMax, pU8[i]);
+   }
+   printf("anomalous=%d\n", t);
+   for (int i=0; i<=32; i++)
+   {
+      if (mm[i].vMax >= mm[i].vMin) { printf("%2u: %8zu %3u %3u\n", i, d[i], mm[i].vMin, mm[i].vMax); }
+   }
+} // dumpDMMBC
+
+void checkComb (const V3I v[2], const Stride stride[3], const D3MapElem * pM)
+{
+   for (int k=0; k<2; k++)
+   {
+      for (int j=0; j<2; j++)
+      {
+         for (int i=0; i<2; i++)
+         {
+            const D3MapElem m= pM[ dotS3(v[i].x, v[j].y, v[k].z, stride) ];
+            U8 r= m >> 26;
+            U32 m6= m & ((1<<6)-1);
+            U32 m12= (m>>6) & ((1<<12)-1);
+            U32 m8= (m>>18) & ((1<<8)-1);
+            printf("(%3d,%3d,%3d) : %u ", v[i].x, v[j].y, v[k].z, r);
+            printf("m: 0x%x(%u) 0x%x(%u) 0x%x(%u) ", m6, bitCountZ(m6), m12, bitCountZ(m12), m8, bitCountZ(m8));
+            dumpM6(m,"\n"); 
+         }
+      }
+   }
+} // checkComb

@@ -15,6 +15,11 @@ extern const float gEpsilon; //= 1.0 / (1<<30);
 
 typedef struct
 {
+   U8 vMin,vMax;
+} MMU8;
+
+typedef struct
+{
    SMVal Dt, sad;
 } SearchResult;
 
@@ -42,7 +47,7 @@ extern size_t initFieldVCM (DiffScalar * pS, const DiffOrg *pO, const D3MapElem 
 extern size_t resetFieldVCM (DiffScalar * pS, const DiffOrg *pO, const D3MapElem *pM, const D3MapKey *pK, DiffScalar v);
 
 extern float d2F3 (float dx, float dy, float dz);
-extern float setDiffIsoK (DiffScalar k[2], const DiffScalar Dt, const uint dim);
+extern float setDiffIsoK (DiffScalar k[2], const DiffScalar Dt, const U32 dim);
 
 extern DiffScalar compareAnalytic (DiffScalar * restrict pTR, const DiffScalar * pS, const DiffOrg *pO, const DiffScalar v, const DiffScalar Dt);
 extern DiffScalar initAnalytic (DiffScalar * pR, const DiffOrg *pO, const DiffScalar v, const DiffScalar Dt);
@@ -54,7 +59,7 @@ extern DiffScalar searchMin1
 (
    SearchResult *pR, const MemBuff * pWS,
    const DiffScalar *pS, const DiffOrg *pO, 
-   const DiffScalar ma, const DiffScalar estDt, const uint f
+   const DiffScalar ma, const DiffScalar estDt, const U32 f
 );
 
 typedef struct { SMVal sum; MMSMVal mm; } RedRes;
@@ -71,9 +76,12 @@ extern SMVal diffStrideNS (DiffScalar * pR, const DiffScalar * pS1, const DiffSc
 extern SMVal relDiffStrideNS (DiffScalar * pR, const DiffScalar * pS1, const DiffScalar * pS2, const size_t n, const Stride s);
 */
 
-extern void dumpM6 (uint m6, const char *e);
-//extern void dumpM12 (uint m12, const char *e);
-//extern void dumpM8 (uint m8, const char *e);
+extern void dumpM6 (U32 m6, const char *e);
+//extern void dumpM12 (U32 m12, const char *e);
+//extern void dumpM8 (U32 m8, const char *e);
+extern void dumpDistBC (const D3MapElem * pM, const size_t nM);
+extern void dumpDMMBC (const U8 *pU8, const D3MapElem * pM, const size_t n, const U32 mask);
+extern void checkComb (const V3I v[2], const Stride stride[3], const D3MapElem * pM);
 
 #ifdef __cplusplus
 } // extern "C"

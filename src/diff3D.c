@@ -12,7 +12,7 @@
 #define INLINE
 #endif
 
-typedef uint (*DiffProcIsoMapFuncPtr)
+typedef U32 (*DiffProcIsoMapFuncPtr)
 (
    DiffScalar * restrict, DiffScalar * restrict pS, 
    const DiffOrg * pO, const D3IsoWeights * pW, const D3MapElem * pM
@@ -20,7 +20,7 @@ typedef uint (*DiffProcIsoMapFuncPtr)
 
 /***/
 
-INLINE void setS6M (Stride s6m[], const Stride step[], const uint m)
+INLINE void setS6M (Stride s6m[], const Stride step[], const U32 m)
 {  // NB: ORDERED BY OPPOSING (-+) PAIRS FOR EFFICIENT PROCESSING!
    s6m[0]= (0x01 & m) ? step[0] : 0; // -X
    s6m[1]= (0x02 & m) ? step[1] : 0; // +X
@@ -30,7 +30,7 @@ INLINE void setS6M (Stride s6m[], const Stride step[], const uint m)
    s6m[5]= (0x20 & m) ? step[5] : 0; // +Z
 } // setS6M
 
-INLINE void setS12M (Stride s12m[], const Stride step[], const uint m)
+INLINE void setS12M (Stride s12m[], const Stride step[], const U32 m)
 {  // NB: ORDERED BY OPPOSING (-+) PAIRS FOR EFFICIENT PROCESSING!
    s12m[0]= (0x001 & m) ? (step[0] + step[2]) : 0; // -X -Y
    s12m[1]= (0x002 & m) ? (step[1] + step[3]) : 0; // +X +Y
@@ -48,7 +48,7 @@ INLINE void setS12M (Stride s12m[], const Stride step[], const uint m)
    s12m[11]= (0x800 & m) ? (step[3] + step[4]) : 0; // +Y -Z
 } // setS12M
 
-INLINE void setS8M (Stride s8m[], const Stride step[], const uint m)
+INLINE void setS8M (Stride s8m[], const Stride step[], const U32 m)
 {  // NB: ORDERED BY OPPOSING (-+) PAIRS FOR EFFICIENT PROCESSING!
    s8m[0]= (0x01 & m) ? step[0] + step[2] + step[4] : 0; // -X -Y -Z
    s8m[1]= (0x02 & m) ? step[1] + step[3] + step[5] : 0; // +X +Y +Z
@@ -60,19 +60,19 @@ INLINE void setS8M (Stride s8m[], const Stride step[], const uint m)
    s8m[7]= (0x80 & m) ? step[1] + step[2] + step[4] : 0; // +X -Y -Z
 } // setS8M
 
-INLINE void setS14M (Stride s14m[], const Stride step[], const uint m)
+INLINE void setS14M (Stride s14m[], const Stride step[], const U32 m)
 {
    setS6M(s14m, step, m);
    setS8M(s14m+6, step, m>>18); // NOTE fixed location of corner flags!
 } // setS14M
 
-INLINE void setS18M (Stride s18m[], const Stride step[], const uint m)
+INLINE void setS18M (Stride s18m[], const Stride step[], const U32 m)
 {
    setS6M(s18m, step, m);
    setS12M(s18m+6, step, m>>6);
 } // setS18M
 
-INLINE void setS26M (Stride s26m[], const Stride step[], const uint m)
+INLINE void setS26M (Stride s26m[], const Stride step[], const U32 m)
 {
    setS6M(s26m, step, m);
    setS12M(s26m+6, step, m>>6);
@@ -81,9 +81,9 @@ INLINE void setS26M (Stride s26m[], const Stride step[], const uint m)
 
 // Boundary flag routines: not used here but map flag ordering must be identical
 // to usage for generating offsets as in setS*M() above.
-INLINE uint getBoundaryM6 (Index x, Index y, Index z, const MMV3I *pMM)
+INLINE U32 getBoundaryM6 (Index x, Index y, Index z, const MMV3I *pMM)
 {
-   uint m6= 0;
+   U32 m6= 0;
    m6|= (x > pMM->vMin.x) << 0; // -X
    m6|= (x < pMM->vMax.x) << 1; // +X
    m6|= (y > pMM->vMin.x) << 2; // -Y
@@ -93,9 +93,9 @@ INLINE uint getBoundaryM6 (Index x, Index y, Index z, const MMV3I *pMM)
    return(m6);
 } // getBoundaryM6
 
-INLINE uint getBoundaryM12 (const uint m6)
+INLINE U32 getBoundaryM12 (const U32 m6)
 {
-   uint m12= 0;
+   U32 m12= 0;
    m12|= ((m6 & 0x01) && (m6 & 0x04)) << 0; // -X -Y
    m12|= ((m6 & 0x02) && (m6 & 0x08)) << 1; // +X +Y
    m12|= ((m6 & 0x01) && (m6 & 0x08)) << 2; // -X +Y
@@ -111,9 +111,9 @@ INLINE uint getBoundaryM12 (const uint m6)
    return(m12);
 } // getBoundaryM12
 
-INLINE uint getBoundaryM8 (const uint m6)
+INLINE U32 getBoundaryM8 (const U32 m6)
 {
-   uint m8= 0;
+   U32 m8= 0;
    m8|= ((m6 & 0x01) && (m6 & 0x04) && (m6 & 0x10)) << 0; // -X -Y -Z
    m8|= ((m6 & 0x02) && (m6 & 0x08) && (m6 & 0x20)) << 1; // +X +Y +Z
    m8|= ((m6 & 0x01) && (m6 & 0x04) && (m6 & 0x20)) << 2; // -X -Y +Z
@@ -214,7 +214,7 @@ void procD3S6M
             #pragma acc loop vector
             for (Index x= 0; x < pO->def.x; x++)
             {
-               const uint m= pM[x + pO->def.x * (y + (size_t) pO->def.y * z) ];
+               const U32 m= pM[x + pO->def.x * (y + (size_t) pO->def.y * z) ];
                if (0 != m)
                {
                   const size_t i= x * pO->stride[0] + y * pO->stride[1] + z * pO->stride[2];
@@ -254,7 +254,7 @@ void procD3S14M
             #pragma acc loop vector
             for (Index x= 0; x < pO->def.x; x++)
             {
-               const uint m= pM[x + pO->def.x * (y + (size_t) pO->def.y * z) ];
+               const U32 m= pM[x + pO->def.x * (y + (size_t) pO->def.y * z) ];
                if (0 != m)
                {
                   const size_t i= x * pO->stride[0] + y * pO->stride[1] + z * pO->stride[2];
@@ -293,7 +293,7 @@ void procD3S18M
             #pragma acc loop vector
             for (Index x= 0; x < pO->def.x; x++)
             {
-               const uint m= pM[x + pO->def.x * (y + (size_t) pO->def.y * z) ];
+               const U32 m= pM[x + pO->def.x * (y + (size_t) pO->def.y * z) ];
                if (0 != m)
                {
                   const size_t i= x * pO->stride[0] + y * pO->stride[1] + z * pO->stride[2];
@@ -332,7 +332,7 @@ void procD3S26M
             #pragma acc loop vector
             for (Index x= 0; x < pO->def.x; x++)
             {
-               const uint m= pM[x + pO->def.x * (y + (size_t) pO->def.y * z) ];
+               const U32 m= pM[x + pO->def.x * (y + (size_t) pO->def.y * z) ];
                if (0 != m)
                {
                   const size_t i= x * pO->stride[0] + y * pO->stride[1] + z * pO->stride[2];
@@ -371,7 +371,7 @@ void procD3S6M8
             #pragma acc loop vector
             for (Index x= 0; x < pO->def.x; x++)
             {
-               const uint m= pM[x + pO->def.x * (y + (size_t) pO->def.y * z) ];
+               const U32 m= pM[x + pO->def.x * (y + (size_t) pO->def.y * z) ];
                if (0 != m)
                {
                   const size_t i= x * pO->stride[0] + y * pO->stride[1] + z * pO->stride[2];
@@ -393,17 +393,17 @@ void procD3S6M8
 
 /***/
 
-uint diffProcIsoD3S6M
+U32 diffProcIsoD3S6M
 (
    DiffScalar * restrict pR,  // Result field(s)
    DiffScalar * restrict pS, // Source field(s)
    const DiffOrg        * pO, // descriptor
    const D3S6IsoWeights * pW,
    const D3S6MapElem    * pM,
-   const uint nI
+   const U32 nI
 )
 {
-   uint i;
+   U32 i;
    #pragma acc data present_or_copyin( pO[:1], pW[:pO->nPhase], pM[:pO->n1F] )
    {
       if (0 == (nI & 1))
@@ -433,19 +433,19 @@ uint diffProcIsoD3S6M
    return(i);
 } // diffProcIsoD3S6M
 
-uint diffProcIsoD3SxM
+U32 diffProcIsoD3SxM
 (
    DiffScalar * restrict pR,  // Result field(s)
    DiffScalar * restrict pS, // Source field(s)
    const DiffOrg        * pO, // descriptor
    const D3IsoWeights * pW,
    const D3MapElem    * pM,
-   const uint nI,
-   const uint nHood
+   const U32 nI,
+   const U32 nHood
 )
 {
    DiffProcIsoMapFuncPtr pF=NULL;
-   uint i= 0;
+   U32 i= 0;
    switch(nHood)
    {
       case 26 : pF= (DiffProcIsoMapFuncPtr)procD3S26M; break;
@@ -490,17 +490,17 @@ void diffSet6To26 (Stride s26[])
    setS8M(s26+18, s26, 0xFF);
 } // diffSet6To26
 
-uint getBoundaryM26 (Index x, Index y, Index z, const MMV3I *pMM)
+U32 getBoundaryM26 (Index x, Index y, Index z, const MMV3I *pMM)
 {
-   const uint m6= getBoundaryM6(x, y, z, pMM);
+   const U32 m6= getBoundaryM6(x, y, z, pMM);
    return( m6 | (getBoundaryM12(m6) << 6) | (getBoundaryM8(m6) << 18) );
 } // getBoundaryM26
 
-uint getBoundaryM26V (Index x, Index y, Index z, const MMV3I *pMM)
+U32 getBoundaryM26V (Index x, Index y, Index z, const MMV3I *pMM)
 {
-   const uint m6= getBoundaryM6(x, y, z, pMM);
-   const uint m12= getBoundaryM12(m6);
-   const uint m8= getBoundaryM8(m6);
+   const U32 m6= getBoundaryM6(x, y, z, pMM);
+   const U32 m12= getBoundaryM12(m6);
+   const U32 m8= getBoundaryM8(m6);
    printf("getBoundaryM26V(%d, %d, %d) - m6=0x%x, m12=0x%x, m8=0x%x\n", x, y, z, m6, m12, m8);
    return(m6 | (m12 << 6) | (m8 << 18));
 } // getBoundaryM26V

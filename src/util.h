@@ -1,6 +1,6 @@
 // util.h - 3D Diffusion under OpenACC
 // https://github.com/DrAl-HFS/Diffusion3D.git
-// (c) Diffusion3D Project Contributors Jan 2019
+// (c) Diffusion3D Project Contributors Jan-Mar 2019
 
 #ifndef UTIL_H
 #define UTIL_H
@@ -96,12 +96,12 @@ extern SMVal deltaT (void);
 
 extern void statMom1AddW (StatMomD1R2 * const pS, const SMVal v, const SMVal w);
 extern void statMom3AddW (StatMomD3R2 * const pS, const SMVal x, const SMVal y, const SMVal z, const SMVal w);
-extern uint statMom1Res1 (StatResD1R2 * const pR, const StatMomD1R2 * const pS, const SMVal dof);
-extern uint statMom3Res1 (StatResD1R2 r[3], const StatMomD3R2 * const pS, const SMVal dof);
+extern U32 statMom1Res1 (StatResD1R2 * const pR, const StatMomD1R2 * const pS, const SMVal dof);
+extern U32 statMom3Res1 (StatResD1R2 r[3], const StatMomD3R2 * const pS, const SMVal dof);
 
 extern float binSize (char *pCh, size_t s);
 
-extern uint bitCountZ (size_t u);
+extern U32 bitCountZ (size_t u);
 
 extern int strFmtNSMV (char s[], const int maxS, const char *fmt, const SMVal v[], const int n);
 

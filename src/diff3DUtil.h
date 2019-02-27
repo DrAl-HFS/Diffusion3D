@@ -40,11 +40,11 @@ extern size_t dotS3 (Index x, Index y, Index z, const Stride s[3]);// { return( 
 
 extern void adjustMMV3I (MMV3I *pR, const MMV3I *pS, const I32 a);
 
-extern size_t initDiffOrg (DiffOrg *pO, uint def, uint nP);
+extern size_t initDiffOrg (DiffOrg *pO, U32 def, U32 nP);
 
-extern DiffScalar initIsoW (DiffScalar w[], DiffScalar r, uint nHood, uint f);
+extern DiffScalar initIsoW (DiffScalar w[], DiffScalar r, U32 nHood, U32 f);
 
-extern float setDefaultMap (D3MapElem *pM, const V3I *pD, const uint id);
+extern float setDefaultMap (D3MapElem *pM, const V3I *pD, const U32 id);
 
 extern Bool32 getProfileRM (RawTransMethodDesc *pRM, U8 id, U8 f);
 

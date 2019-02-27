@@ -12,11 +12,6 @@ typedef struct
    size_t n;
 } MapOrg;
 
-typedef struct
-{
-   U8 vMin,vMax;
-} MMU8;
-
 const D3MapElem gExtMask= 0x3f << 26;
 
 
@@ -132,67 +127,6 @@ static void sealBoundaryMap (D3MapElem *pM, const MapOrg *pO, const D3MapElem ex
    }
 } // sealBoundaryMap
 
-void dumpDistBC (const D3MapElem * pM, const size_t nM)
-{
-   size_t d1[27], d2[7], s= 0;
-   for (int i=0; i<=26; i++) { d1[i]= 0; }
-   for (int i=0; i<=6; i++) { d2[i]= 0; }
-   for (size_t i=0; i<nM; i++)
-   {
-      uint b= bitCountZ( pM[i] & ((1<<26)-1) );
-      d1[b]++;
-      b= bitCountZ( pM[i] >> 26 );
-      d2[b]++;
-   }
-   printf("BitCountDist: ");
-   s= 0;
-   for (int i=0; i<=26; i++) { printf("%zu ", d1[i]); s+= d1[i]; }
-   printf("\nsum=%zu\nExtDist: ",s);
-   s= 0;
-   for (int i=0; i<=6; i++) { printf("%zu ", d2[i]); s+= d2[i]; }
-   printf("\nsum=%zu\n: ",s);
-} // dumpDistBC
-
-void dumpDMMBC (const U8 *pU8, const D3MapElem * pM, const size_t n, const uint mask)
-{
-   size_t d[33], t= 0;
-   MMU8 mm[33];
-   for (int i=0; i<=32; i++) { mm[i].vMin= 0xFF; mm[i].vMax= 0; d[i]= 0; }
-   for (size_t i=0; i < n; i++)
-   {
-      uint b= bitCountZ( pM[i] & mask );
-      d[b]++;
-      t+= ((0 == b) && (pU8[i] > 0));
-      mm[b].vMin= MIN(mm[b].vMin, pU8[i]);
-      mm[b].vMax= MAX(mm[b].vMax, pU8[i]);
-   }
-   printf("anomalous=%d\n", t);
-   for (int i=0; i<=32; i++)
-   {
-      if (mm[i].vMax >= mm[i].vMin) { printf("%2u: %8zu %3u %3u\n", i, d[i], mm[i].vMin, mm[i].vMax); }
-   }
-} // dumpDMMBC
-
-void checkComb (const V3I v[2], const Stride stride[3], const D3MapElem * pM)
-{
-   for (int k=0; k<2; k++)
-   {
-      for (int j=0; j<2; j++)
-      {
-         for (int i=0; i<2; i++)
-         {
-            const D3MapElem m= pM[ dotS3(v[i].x, v[j].y, v[k].z, stride) ];
-            U8 r= m >> 26;
-            uint m6= m & ((1<<6)-1);
-            uint m12= (m>>6) & ((1<<12)-1);
-            uint m8= (m>>18) & ((1<<8)-1);
-            printf("(%3d,%3d,%3d) : %u ", v[i].x, v[j].y, v[k].z, r);
-            printf("m: 0x%x(%u) 0x%x(%u) 0x%x(%u) ", m6, bitCountZ(m6), m12, bitCountZ(m12), m8, bitCountZ(m8));
-            dumpM6(m,"\n"); 
-         }
-      }
-   }
-} // checkComb
 
 static void constrainNH (D3MapElem * restrict pM, const U8 *pU8, const size_t n, 
                      const Stride step[], const D3MapElem revM[], const U8 nNH)
@@ -238,6 +172,8 @@ static void constrainMapNH (D3MapElem * const pM, const U8 * pU8, const MapOrg *
       constrainNH(pM, pU8, pO->n, pO->step, revM, nNH);
    }
 } // constrainMapNH
+
+#include "diffTestUtil.h"
 
 float processMap (D3MapElem * pM, V3I * pV, const U8 * pPerm, const MapOrg * pO)
 {
@@ -330,7 +266,7 @@ void adjustMMV3I (MMV3I *pR, const MMV3I *pS, const I32 a)
    pR->vMax.z= pS->vMax.z + a;
 } // adjustMMV3I
 
-size_t initDiffOrg (DiffOrg *pO, uint def, uint nP)
+size_t initDiffOrg (DiffOrg *pO, U32 def, U32 nP)
 {
    size_t n= 1;
 
@@ -355,10 +291,10 @@ size_t initDiffOrg (DiffOrg *pO, uint def, uint nP)
    return(n);
 } // initDiffOrg
 
-DiffScalar initIsoW (DiffScalar w[], DiffScalar r, uint nHood, uint f)
+DiffScalar initIsoW (DiffScalar w[], DiffScalar r, U32 nHood, U32 f)
 {
    DiffScalar t= 0;
-   uint n[3]= {6,0,0};
+   U32 n[3]= {6,0,0};
 
    w[0]= w[1]= w[2]= w[3]= 0;
    switch (nHood)
@@ -390,7 +326,7 @@ DiffScalar initIsoW (DiffScalar w[], DiffScalar r, uint nHood, uint f)
    return(t);
 } // initIsoW
 
-float setDefaultMap (D3MapElem *pM, const V3I *pD, const uint id)
+float setDefaultMap (D3MapElem *pM, const V3I *pD, const U32 id)
 {
    MapOrg org;
    size_t n= initMapOrg(&org, pD);
