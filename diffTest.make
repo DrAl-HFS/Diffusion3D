@@ -1,8 +1,8 @@
 CC = pgcc -c11
+CXX = pgc++ -std=c++11
 #ACCFLAGS = -O4 -Mautoinline -acc=verystrict -ta=host,multicore,tesla -Minfo=all -mp
-ACCFLAGS = -O4 -Mautoinline -acc=verystrict -ta=tesla
-DBGFLAGS = -g -Mautoinline -acc=verystrict -ta=tesla -Minfo=acc
 #FAST = -O2 -Mautoinline -acc=verystrict
+ACCFLAGS = -Mautoinline -acc=verystrict -ta=tesla
 
 TARGET = dt
 OBJEXT = o
@@ -16,6 +16,9 @@ HDR_DIR=$(SRC_DIR)
 SRC:= $(shell ls $(SRC_DIR)/*.c)
 OBJ:= $(SRC:$(SRC_DIR)/%.c=%.o)
 
+opt: OPTFLAGS= -O4
+dbg: OPTFLAGS= -g -Minfo=acc
+
 
 ### Minimal rebuild rules ###
 
@@ -23,22 +26,21 @@ OBJ:= $(SRC:$(SRC_DIR)/%.c=%.o)
 # every source file MUST have corresponding header or make breaks...
 
 %.o: $(SRC_DIR)/%.c $(HDR_DIR)/%.h
-	$(CC) $(ACCFLAGS) $< -c
+	$(CC) $(OPTFLAGS) $(ACCFLAGS) $< -c
+
+%.o: $(SRC_DIR)/%.cpp $(HDR_DIR)/%.h
+	$(CXX) $(OPTFLAGS) $(ACCFLAGS) $< -c
 
 $(TARGET): $(OBJ)
-	$(CC) $(ACCFLAGS) $^ -o $@
+	$(CC) $(OPTFLAGS) $(ACCFLAGS) $^ -o $@
 
 all: $(TARGET)
+opt: $(TARGET)
+dbg: $(TARGET)
 
 
 ### Phony Targets for building variants	###
-.PHONY: opt dbg run map clean
-
-opt: $(SRC)
-	$(CC) $(ACCFLAGS) -o $(TARGET) $(SRC)
-
-dbg: $(SRC)
-	$(CC) $(DBGFLAGS) -o $(TARGET) $(SRC)
+.PHONY: run map clean
 
 run: $(TARGET)
 	./$(TARGET)
