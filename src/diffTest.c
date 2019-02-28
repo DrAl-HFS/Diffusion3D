@@ -251,6 +251,7 @@ int main (int argc, char *argv[])
 {
    int r= 0;
 
+   utilTest();
    if (init(&gCtx,1<<8))
    {
       float f=-1;

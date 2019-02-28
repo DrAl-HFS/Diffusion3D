@@ -77,7 +77,7 @@ size_t saveBuff (const void * const pB, const char * const path, const size_t by
 
 MBVal readBytesLE (const U8 * const pB, const size_t idx, const U8 nB)
 {
-   size_t v=0;
+   MBVal v=0;
    U8 s= 0;
    for (int i=0; i<nB; i++) { v|= pB[idx+i] << s; s+= 8; }
    return(v);
@@ -220,14 +220,20 @@ U8 bitsValZ (const size_t v)
    return(log2f(v) + a);
 } // bitsValZ
 
-#ifdef UTIL_TEST
+//ifdef UTIL_TEST
 
 int utilTest (void)
 {
+   char c=0;
+   short s= 0;
+   int i= 0;
+   long l= 0;
+   long long ll=0;
+   printf("utilTest() - sizeof: char=%d short=%d int=%d long=%d long long=%d\n",sizeof(c),sizeof(s),sizeof(i),sizeof(l),sizeof(ll));
    return(0);
 } // utilTest
 
-#endif
+//endif
 
 #ifdef UTIL_MAIN
 

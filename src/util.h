@@ -39,13 +39,16 @@ extern "C" {
 #endif
 
 // Terse type names
-typedef signed char  I8;
-typedef signed short I16;
-typedef signed long  I32;
+typedef signed char       I8;
+typedef signed short      I16;
+typedef signed int        I32;
+// Beware! sizeof(long)==8 under PGI!
+typedef signed long long I64;
 
-typedef unsigned char  U8;
-typedef unsigned short U16;
-typedef unsigned long  U32;
+typedef unsigned char      U8;
+typedef unsigned short     U16;
+typedef unsigned int       U32;
+typedef unsigned long long U64;
 
 typedef float F32;
 typedef double F64;
@@ -80,7 +83,7 @@ typedef struct
    union { void *p; size_t w; };
 } MemBuff;
 
-typedef unsigned long MBVal; // Arg holder for multi-bit/byte read/write routines
+typedef unsigned int MBVal; // Arg holder for multi-bit/byte read/write routines
 
 
 /***/
@@ -113,6 +116,8 @@ extern int strFmtNSMV (char s[], const int maxS, const char *fmt, const SMVal v[
 
 extern SMVal sumNSMV (const SMVal v[], const size_t n);
 extern SMVal meanNSMV (const SMVal v[], const size_t n);
+
+extern int utilTest (void);
 
 #ifdef __cplusplus
 } // extern "C"

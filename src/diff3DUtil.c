@@ -97,7 +97,7 @@ static size_t mapTransferU8 (D3MapElem * restrict pM, const U8 *pU8, const size_
 } // mapTransferU8
 
 // INLINE ?
-static MBVal andBytesLE (void *pB, const size_t idx, const U8 nB, const MBVal v)
+static MBVal andBytesLE (U8 *pB, const size_t idx, const U8 nB, const MBVal v)
 {
    pB+= idx * nB; // NB index refers to multi-byte quantity
    return writeBytesLE(pB, 0, nB, v & readBytesLE(pB, 0, nB) );
@@ -137,29 +137,48 @@ static void sealBoundaryMap (void *pM, const U8 nBV, const MapOrg *pO, const D3M
 } // sealBoundaryMap
 
 
-static void constrainNH (D3MapElem * restrict pM, const U8 *pU8, const size_t n, 
+static size_t constrainNH (D3MapElem * const pM, const U8 * const pU8, const size_t n, 
                      const Stride step[], const D3MapElem revM[], const U8 nNH)
 {
-   size_t badR= 0;
    const D3MapElem nhM= (1 << nNH) - 1;
+   size_t w=0;
    for (size_t i= 0; i<n; i++)
    {
-      U8 r= pU8[i];
-      if ((0 == r) ^ (0 == (pM[i] & nhM) ))
+      if (0 == pU8[i])
       {
-         if (0 == r)
-         {
-            for (U8 j=0; j < nNH; j++)
-            {  // adjust all available neighbours, preventing flux into site
-               if (pM[i] & (1<<j)) { pM[ i + step[j] ] &= revM[j]; }
-            }
-            pM[i]= 0;
+         const D3MapElem m= pM[i];
+         w+= (0 == (m & nhM));
+         for (U8 j=0; j < nNH; j++)
+         {  // adjust all available neighbours, preventing flux into site
+            if (m & (1<<j)) { pM[ i + step[j] ] &= revM[j]; }
          }
-         else { badR++; }
+         pM[i]= 0;
       }
    }
-   if (badR > 0) { printf("constrainNH() - badR=%zu\n", badR); }
+   return(w);
 } // constrainNH
+
+static size_t constrainNHB (void * const pM, const U8 * const pU8, const size_t n, 
+                     const Stride step[], const D3MapElem revM[], const U8 nNH, const U8 nMB)
+{
+   const D3MapElem nhM= (1 << nNH) - 1;
+   size_t w=0;
+   for (size_t i= 0; i<n; i++)
+   {
+      if (0 == pU8[i])
+      {
+         const size_t iB= i * nMB;
+         const D3MapElem m= readBytesLE(pM, iB, nMB);
+         w+= (0 == (m & nhM)); if (0 == (m & nhM)) { printf("\n***%zu?\n\n", i); }
+         for (U8 j=0; j < nNH; j++)
+         {  // adjust all available neighbours, preventing flux into site
+            if (m & (1<<j)) { andBytesLE(pM, i + step[j], nMB, revM[j]); }
+         }
+         writeBytesLE(pM, iB, nMB, 0);
+      }
+   }
+   return(w);
+} // constrainNHB
 
 static void genRevM (D3MapElem revM[], char n)
 {
@@ -171,34 +190,38 @@ static void genRevM (D3MapElem revM[], char n)
    }
 } // genRevM
 
-static void constrainMapNH (D3MapElem * const pM, const U8 * pU8, const MapOrg *pO, const U8 nNH)
+static void constrainMapNH (void * const pM, const U8 * pU8, const MapOrg *pO, const U8 nNH, const U8 nMB)
 {
    D3MapElem revM[26];
 
+   if (nNH > (nMB<<3)) { printf("ERROR: constrainMapNH() - nNH=%u, nMB=%u\n", nNH, nMB); }
    if (nNH <= 26)
    {
+      size_t w=0;
       genRevM(revM,nNH);
-      constrainNH(pM, pU8, pO->n, pO->step, revM, nNH);
+      if (4 == nMB) { w= constrainNH(pM, pU8, pO->n, pO->step, revM, nNH); }
+      else { w= constrainNHB(pM, pU8, pO->n, pO->step, revM, nNH, nMB); }
+      if (w > 0) { printf("WARNING: constrainMapNH() - %zu degenerate map entries\n", w);}
    }
 } // constrainMapNH
 
 #include "diffTestUtil.h"
 
-float processMap (D3MapElem * pM, V3I * pV, const U8 * pPerm, const MapOrg * pO)
+float processMap (void * pM, const U8 nMB, V3I * pV, const U8 * pPerm, const MapOrg * pO, U8 v)
 {
    size_t r=-1, s;
 
    printf("transfer...\n");
    s= mapTransferU8(pM, pPerm, pO->n);
-   dumpDMMBC(pPerm, pM, pO->n, -1);
+   if ((v > 0) && (4 == nMB)) { dumpDMMBC(pPerm, pM, pO->n, -1); }
 
    printf("seal...\n");
-   sealBoundaryMap(pM, sizeof(*pM), pO, gExtMask);
-   dumpDMMBC(pPerm, pM, pO->n, (1<<26)-1);
+   sealBoundaryMap(pM, nMB, pO, gExtMask);
+   if ((v > 0) && (4 == nMB)) { dumpDMMBC(pPerm, pM, pO->n, (1<<26)-1); }
 
    printf("constrain...\n");
-   constrainMapNH(pM, pPerm, pO, 26);
-   dumpDMMBC(pPerm, pM, pO->n, (1<<26)-1);
+   constrainMapNH(pM, pPerm, pO, 26, nMB);
+   if ((v > 0) && (4 == nMB)) { dumpDMMBC(pPerm, pM, pO->n, (1<<26)-1); }
 
    if (pV)
    {
@@ -432,7 +455,7 @@ float mapFromU8Raw (D3MapElem *pM, RawTransInfo *pRI, const MemBuff *pWS, const 
                pRI->maxPermSet= pRM->maxPermLvl; // HACK!
                break;
          }
-         r= processMap(pM, &(pRI->site), pPerm, &org);
+         r= processMap(pM, sizeof(*pM), &(pRI->site), pPerm, &org, 1);
          if (pRM->flags & D3UF_PERM_SAVE)
          {
             const char *name= "perm256u8.raw";
