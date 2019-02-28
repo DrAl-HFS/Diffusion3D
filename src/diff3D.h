@@ -73,7 +73,7 @@ extern U32 diffProcIsoD3S6M
    const U32  nI   // iterations
 );
 
-// Other stencils accessed through common interface
+// All stencils accessible through common interface
 // NB 32bit map entries and all weights padded 
 U32 diffProcIsoD3SxM
 (

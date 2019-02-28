@@ -300,7 +300,7 @@ int main (int argc, char *argv[])
 
          //iT= 0; iN= iT & 1;
          param.nHood=26;
-         param.iter= 50;
+         param.iter= 50; if (mapID > 0) { param.iter= 200; }
          param.rD=   0.5;
          initFieldVCM(gCtx.pSR[0], &(gCtx.org), NULL, NULL, &gMSI);
          if (dumpR > 0) { dumpSMR(gCtx.pSR[0], gCtx.pM, &(gMSI.c), dumpR); }

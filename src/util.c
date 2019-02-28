@@ -75,6 +75,21 @@ size_t saveBuff (const void * const pB, const char * const path, const size_t by
    return(r);
 } // saveBuff
 
+MBVal readBytesLE (const U8 * const pB, const size_t idx, const U8 nB)
+{
+   size_t v=0;
+   U8 s= 0;
+   for (int i=0; i<nB; i++) { v|= pB[idx+i] << s; s+= 8; }
+   return(v);
+} // readBytesLE
+
+MBVal writeBytesLE (U8 * const pB, const size_t idx, const U8 nB, const MBVal v)
+{
+   U8 s= 0;
+   for (int i=0; i<nB; i++) { pB[idx+i]= v >> s; s+= 8; }   
+   return(v);
+} // writeBytesLE
+
 SMVal deltaT (void)
 {
    static struct timeval t[2]={0,};

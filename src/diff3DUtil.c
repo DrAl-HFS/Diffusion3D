@@ -96,33 +96,42 @@ static size_t mapTransferU8 (D3MapElem * restrict pM, const U8 *pU8, const size_
    return( s[0] );
 } // mapTransferU8
 
-static void sealBoundaryMap (D3MapElem *pM, const MapOrg *pO, const D3MapElem extMask)
+// INLINE ?
+static MBVal andBytesLE (void *pB, const size_t idx, const U8 nB, const MBVal v)
+{
+   pB+= idx * nB; // NB index refers to multi-byte quantity
+   return writeBytesLE(pB, 0, nB, v & readBytesLE(pB, 0, nB) );
+} // andBytesLE
+
+static void sealBoundaryMap (void *pM, const U8 nBV, const MapOrg *pO, const D3MapElem extMask)
 {
    for (Index y= pO->mm.vMin.y; y <= pO->mm.vMax.y; y++)
    {
       for (Index x= pO->mm.vMin.x; x <= pO->mm.vMax.x; x++)
       {
-         const size_t i= x * pO->stride[0] + y * pO->stride[1] + pO->mm.vMin.z * pO->stride[2];
-         const size_t j= x * pO->stride[0] + y * pO->stride[1] + pO->mm.vMax.z * pO->stride[2];
-         pM[i]&= extMask|getBoundaryM26(x, y, pO->mm.vMin.z, &(pO->mm));
-         pM[j]&= extMask|getBoundaryM26(x, y, pO->mm.vMax.z, &(pO->mm));
+         const size_t i= dotS3(x, y, pO->mm.vMin.z, pO->stride);
+         const size_t j= dotS3(x, y, pO->mm.vMax.z, pO->stride);
+         andBytesLE(pM, i, nBV, extMask|getBoundaryM26(x, y, pO->mm.vMin.z, &(pO->mm)));
+         andBytesLE(pM, j, nBV, extMask|getBoundaryM26(x, y, pO->mm.vMax.z, &(pO->mm)));
       }
    }
    for (Index z= pO->mm.vMin.z; z <= pO->mm.vMax.z; z++)
    {
       for (Index x= pO->mm.vMin.x; x <= pO->mm.vMax.x; x++)
       {
-         const size_t i= x * pO->stride[0] + pO->mm.vMin.y * pO->stride[1] + z * pO->stride[2];
-         const size_t j= x * pO->stride[0] + pO->mm.vMax.y * pO->stride[1] + z * pO->stride[2];
-         pM[i]&= extMask|getBoundaryM26(x, pO->mm.vMin.y, z, &(pO->mm));
-         pM[j]&= extMask|getBoundaryM26(x, pO->mm.vMax.y, z, &(pO->mm));
+         const size_t i= dotS3(x, pO->mm.vMin.y, z, pO->stride);
+         const size_t j= dotS3(x, pO->mm.vMax.y, z, pO->stride);
+         andBytesLE(pM, i, nBV, extMask|getBoundaryM26(x, pO->mm.vMin.y, z, &(pO->mm)));
+         andBytesLE(pM, j, nBV, extMask|getBoundaryM26(x, pO->mm.vMax.y, z, &(pO->mm)));
       }
       for (Index y= pO->mm.vMin.y; y <= pO->mm.vMax.y; y++)
       {
-         const size_t i= pO->mm.vMin.x * pO->stride[0] + y * pO->stride[1] + z * pO->stride[2];
-         const size_t j= pO->mm.vMax.x * pO->stride[0] + y * pO->stride[1] + z * pO->stride[2];
-         pM[i]&= extMask|getBoundaryM26(pO->mm.vMin.x, y, z, &(pO->mm));
-         pM[j]&= extMask|getBoundaryM26(pO->mm.vMax.x, y, z, &(pO->mm));
+         const size_t i= dotS3(pO->mm.vMin.x, y, z, pO->stride);
+         const size_t j= dotS3(pO->mm.vMax.x, y, z, pO->stride);
+         //pM[i]&= extMask|getBoundaryM26(pO->mm.vMin.x, y, z, &(pO->mm));
+         //pM[j]&= extMask|getBoundaryM26(pO->mm.vMax.x, y, z, &(pO->mm));
+         andBytesLE(pM, i, nBV, extMask|getBoundaryM26(pO->mm.vMin.x, y, z, &(pO->mm)));
+         andBytesLE(pM, j, nBV, extMask|getBoundaryM26(pO->mm.vMax.x, y, z, &(pO->mm)));
       }
    }
 } // sealBoundaryMap
@@ -184,7 +193,7 @@ float processMap (D3MapElem * pM, V3I * pV, const U8 * pPerm, const MapOrg * pO)
    dumpDMMBC(pPerm, pM, pO->n, -1);
 
    printf("seal...\n");
-   sealBoundaryMap(pM, pO, gExtMask);
+   sealBoundaryMap(pM, sizeof(*pM), pO, gExtMask);
    dumpDMMBC(pPerm, pM, pO->n, (1<<26)-1);
 
    printf("constrain...\n");
@@ -333,7 +342,7 @@ float setDefaultMap (D3MapElem *pM, const V3I *pD, const U32 id)
    const D3MapElem me= getBoundaryM26V(org.def.x/2, org.def.y/2, org.def.z/2, &(org.mm));
 
    for (size_t i=0; i < n; i++) { pM[i]= me; }
-   sealBoundaryMap(pM, &org, 0);
+   sealBoundaryMap(pM, sizeof(*pM), &org, 0);
 
    switch (id)
    {
