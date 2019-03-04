@@ -55,7 +55,7 @@ static int popT (int t[], const U8 *pS, const size_t n, const float popF[], cons
    return(nF);
 } // popT
 
-static size_t permTransMapU8 (U8 *pPerm, const U8 *pS, const size_t n, const float popF[2], const int maxPerm)
+static size_t imgU8PopTransferPerm (U8 *pPerm, const U8 *pS, const size_t n, const float popF[2], const int maxPerm)
 {
    size_t s= 0;
    int iT[2]={0,0};
@@ -75,26 +75,47 @@ static size_t permTransMapU8 (U8 *pPerm, const U8 *pS, const size_t n, const flo
       }
    }
    return(s);
-} // permTransMapU8
+} // imgU8PopTransferPerm
 
+/*
 static size_t map6TransferU8 (D3S6MapElem * restrict pM, const U8 *pU8, const size_t n, const U8 t)
 {
 static const D3S6MapElem v6[2]= { (1<<6)-1, 0 };
    return( thresholdNU8(pM, pU8, n, t, v6) / v6[0] );
 } // map6TransferU8
+*/
 
-static size_t mapTransferU8 (D3MapElem * restrict pM, const U8 *pU8, const size_t n)
+static void permTransferMapNH (void * pPNH, size_t s[256], const U8 nMB, const U8 nNH, const I8 nP, const U8 *pPerm, const size_t n)
 {
-   const D3MapElem v26[2]= { -1, (1<<26)-1 };
-   size_t s[2]={0,0};
-   for (size_t i=0; i<n; i++)
-   { 
-      int c= (0 == pU8[i]);
-      s[c]++;
-      pM[i]= v26[c]; 
+   const D3MapElem mNH= (1<<nNH)-1;
+   const D3MapElem mP= (1<<nP)-1;
+   
+   switch (nMB)
+   {
+      case 4 :
+      {
+         D3MapElem *pM= pPNH;
+         for (size_t i=0; i<n; i++)
+         { 
+            D3MapElem v= pPerm[i] & mP;
+            s[v]++;
+            pM[i]= mNH | (v << nNH); 
+         }
+         break;
+      }
+      case 1 :
+      {
+         U8 *pM= pPNH;
+         for (size_t i=0; i<n; i++)
+         { 
+            U8 v= pPerm[i] & mP;
+            s[v]++;
+            pM[i]= mNH | (v << nNH); 
+         }
+         break;
+      }
    }
-   return( s[0] );
-} // mapTransferU8
+} // permTransferMapNH
 
 // INLINE ?
 static MBVal andBytesLE (U8 *pB, const size_t idx, const U8 nB, const MBVal v)
@@ -103,7 +124,7 @@ static MBVal andBytesLE (U8 *pB, const size_t idx, const U8 nB, const MBVal v)
    return writeBytesLE(pB, 0, nB, v & readBytesLE(pB, 0, nB) );
 } // andBytesLE
 
-static void sealBoundaryMap (void *pM, const U8 nBV, const MapOrg *pO, const D3MapElem extMask)
+static void sealBoundaryMapNH (void *pM, const U8 nBV, const MapOrg *pO, const D3MapElem extMask)
 {
    for (Index y= pO->mm.vMin.y; y <= pO->mm.vMax.y; y++)
    {
@@ -134,11 +155,11 @@ static void sealBoundaryMap (void *pM, const U8 nBV, const MapOrg *pO, const D3M
          andBytesLE(pM, j, nBV, extMask|getBoundaryM26(pO->mm.vMax.x, y, z, &(pO->mm)));
       }
    }
-} // sealBoundaryMap
+} // sealBoundaryMapNH
 
 
-static size_t constrainNH (D3MapElem * const pM, const U8 * const pU8, const size_t n, 
-                     const Stride step[], const D3MapElem revM[], const U8 nNH)
+static size_t constrainNH (D3MapElem * const pM, const U8 nNH, const U8 * const pU8, const size_t n, 
+                     const Stride step[], const D3MapElem revM[])
 {
    const D3MapElem nhM= (1 << nNH) - 1;
    size_t w=0;
@@ -158,8 +179,8 @@ static size_t constrainNH (D3MapElem * const pM, const U8 * const pU8, const siz
    return(w);
 } // constrainNH
 
-static size_t constrainNHB (void * const pM, const U8 * const pU8, const size_t n, 
-                     const Stride step[], const D3MapElem revM[], const U8 nNH, const U8 nMB)
+static size_t constrainNHB (void * const pM, const U8 nMB, const U8 nNH, const U8 * const pU8, const size_t n, 
+                     const Stride step[], const D3MapElem revM[])
 {
    const D3MapElem nhM= (1 << nNH) - 1;
    size_t w=0;
@@ -190,7 +211,7 @@ static void genRevM (D3MapElem revM[], char n)
    }
 } // genRevM
 
-static void constrainMapNH (void * const pM, const U8 * pU8, const MapOrg *pO, const U8 nNH, const U8 nMB)
+static void constrainMapNH (void * const pM, const U8 nMB, const U8 nNH, const U8 * pU8, const MapOrg *pO)
 {
    D3MapElem revM[26];
 
@@ -199,64 +220,43 @@ static void constrainMapNH (void * const pM, const U8 * pU8, const MapOrg *pO, c
    {
       size_t w=0;
       genRevM(revM,nNH);
-      if (4 == nMB) { w= constrainNH(pM, pU8, pO->n, pO->step, revM, nNH); }
-      else { w= constrainNHB(pM, pU8, pO->n, pO->step, revM, nNH, nMB); }
+      if (4 == nMB) { w= constrainNH(pM, nNH, pU8, pO->n, pO->step, revM); }
+      else { w= constrainNHB(pM, nMB, nNH, pU8, pO->n, pO->step, revM); }
       if (w > 0) { printf("WARNING: constrainMapNH() - %zu degenerate map entries\n", w);}
    }
 } // constrainMapNH
 
 #include "diffTestUtil.h"
 
-float processMap (void * pM, const U8 nMB, V3I * pV, const U8 * pPerm, const MapOrg * pO, U8 v)
+float processMap (void * pM, const U8 nMapBytes, const U8 nNHBits, const U8 * pPerm, const MapOrg * pO, U8 v)
 {
-   size_t r=-1, s;
+   size_t pd[256]={0,};
 
    printf("transfer...\n");
-   s= mapTransferU8(pM, pPerm, pO->n);
-   if ((v > 0) && (4 == nMB)) { dumpDMMBC(pPerm, pM, pO->n, -1); }
-
+   permTransferMapNH(pM, pd, nMapBytes, nNHBits, 8*nMapBytes-nNHBits, pPerm, pO->n);
+   if (v > 0)
+   {
+      float r= 100.0 / pO->n;
+      printf("PermDist:\n");
+      for (int i=0; i<256; i++)
+      {
+         if (pd[i] > 0) { printf("%d: %12zu = %G%%\n", i, pd[i], r * pd[i]); } 
+      }
+      printf("\n");
+      if (4 == nMapBytes) { dumpDMMBC(pPerm, pM, pO->n, -1); }
+   }
    printf("seal...\n");
-   sealBoundaryMap(pM, nMB, pO, gExtMask);
-   if ((v > 0) && (4 == nMB)) { dumpDMMBC(pPerm, pM, pO->n, (1<<26)-1); }
+   sealBoundaryMapNH(pM, nMapBytes, pO, gExtMask);
+   if ((v > 0) && (4 == nMapBytes)) { dumpDMMBC(pPerm, pM, pO->n, (1<<nNHBits)-1); }
 
    printf("constrain...\n");
-   constrainMapNH(pM, pPerm, pO, 26, nMB);
-   if ((v > 0) && (4 == nMB)) { dumpDMMBC(pPerm, pM, pO->n, (1<<26)-1); }
+   constrainMapNH(pM, nMapBytes, nNHBits, pPerm, pO);
+   if ((v > 0) && (4 == nMapBytes)) { dumpDMMBC(pPerm, pM, pO->n, (1<<nNHBits)-1); }
 
-   if (pV)
-   {
-      V3I i, c;
-      size_t mR=-1, mS=0;
-      static const U8 v2[2]={0,1};
-      MMV3I mm;
-      I32 zS=-1;
-      U8 t= 1;
-
-      c.x= pO->def.x / 2;
-      c.y= pO->def.y / 2;
-      c.z= pO->def.z / 2;
-
-      adjustMMV3I(&mm, &(pO->mm), -1);
-      for (i.z=mm.vMin.z; i.z < mm.vMax.z; i.z++)
-      {
-         for (i.y=mm.vMin.y; i.y < mm.vMax.y; i.y++)
-         {
-            for (i.x=mm.vMin.x; i.x < mm.vMax.x; i.x++)
-            {
-               const size_t j= dotS3(i.x, i.y, i.z, pO->stride);
-               if (pPerm[j] >= t)
-               {
-                  size_t d= d2I3( i.x - c.x, i.y - c.y, i.z - c.z );
-                  if (d < r) { r= d; *pV= i; t= pPerm[j]; }
-               }
-            }
-         }
-      }
-   }
-   return((float)s / pO->n );
+   return((float)(pO->n - pd[0]) / pO->n );
 } // processMap
 
-static void step6FromStride (Index step[6], const Index stride[3])
+static void step6FromStride (Stride step[6], const Stride stride[3])
 {
    step[0]= -stride[0];
    step[1]=  stride[0];
@@ -358,6 +358,7 @@ DiffScalar initIsoW (DiffScalar w[], DiffScalar r, U32 nHood, U32 f)
    return(t);
 } // initIsoW
 
+
 float setDefaultMap (D3MapElem *pM, const V3I *pD, const U32 id)
 {
    MapOrg org;
@@ -365,7 +366,7 @@ float setDefaultMap (D3MapElem *pM, const V3I *pD, const U32 id)
    const D3MapElem me= getBoundaryM26V(org.def.x/2, org.def.y/2, org.def.z/2, &(org.mm));
 
    for (size_t i=0; i < n; i++) { pM[i]= me; }
-   sealBoundaryMap(pM, sizeof(*pM), &org, 0);
+   sealBoundaryMapNH(pM, sizeof(*pM), &org, 0);
 
    switch (id)
    {
@@ -423,6 +424,35 @@ Bool32 getProfileRM (RawTransMethodDesc *pRM, U8 id, U8 f)
    return(TRUE);
 } // getProfileRM
 
+static void findInnoc (V3I * pV, const U8 * pPerm, const MapOrg * pO)
+{
+   V3I i, c;
+   MMV3I mm;
+   size_t r=-1;
+   U8 t= 1;
+
+   c.x= pO->def.x / 2;
+   c.y= pO->def.y / 2;
+   c.z= pO->def.z / 2;
+
+   adjustMMV3I(&mm, &(pO->mm), -1);
+   for (i.z=mm.vMin.z; i.z < mm.vMax.z; i.z++)
+   {
+      for (i.y=mm.vMin.y; i.y < mm.vMax.y; i.y++)
+      {
+         for (i.x=mm.vMin.x; i.x < mm.vMax.x; i.x++)
+         {
+            const size_t j= dotS3(i.x, i.y, i.z, pO->stride);
+            if (pPerm[j] >= t)
+            {
+               size_t d= d2I3( i.x - c.x, i.y - c.y, i.z - c.z );
+               if (d < r) { r= d; *pV= i; t= pPerm[j]; }
+            }
+         }
+      }
+   }
+} // findInnoc
+
 float mapFromU8Raw (D3MapElem *pM, RawTransInfo *pRI, const MemBuff *pWS, const char *path, 
       const RawTransMethodDesc *pRM, const DiffOrg *pO)
 {
@@ -430,6 +460,7 @@ float mapFromU8Raw (D3MapElem *pM, RawTransInfo *pRI, const MemBuff *pWS, const 
    size_t bytes= fileSize(path);
    char m;
    MapOrg org;
+   U8 verbose=1;
 
    memset(pRI, 0, sizeof(*pRI));
    //nHood, maxPermSet, permAlign;
@@ -451,11 +482,12 @@ float mapFromU8Raw (D3MapElem *pM, RawTransInfo *pRI, const MemBuff *pWS, const 
                break;
             }
             case 2 :
-               permTransMapU8(pPerm, pRaw, org.n, pRM->param, pRM->maxPermLvl);
+               imgU8PopTransferPerm(pPerm, pRaw, org.n, pRM->param, pRM->maxPermLvl);
                pRI->maxPermSet= pRM->maxPermLvl; // HACK!
                break;
          }
-         r= processMap(pM, sizeof(*pM), &(pRI->site), pPerm, &org, 1);
+         r= processMap(pM, sizeof(*pM), 26, pPerm, &org, verbose);
+         findInnoc(&(pRI->site), pPerm, &org);
          if (pRM->flags & D3UF_PERM_SAVE)
          {
             const char *name= "perm256u8.raw";

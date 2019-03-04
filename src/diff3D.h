@@ -15,7 +15,8 @@ extern "C" {
 
 typedef double DiffScalar;
 
-typedef signed long  Index, Stride;
+typedef signed int   Index;
+typedef signed long  Stride; // NB 64bit under PGI
 
 typedef struct { Index x, y, z; } V3I;
 typedef struct { V3I vMin, vMax; } MMV3I;

@@ -12,10 +12,10 @@ CCOUT := $(shell $(CC) 2>&1)
 
 SRC_DIR=src
 HDR_DIR=$(SRC_DIR)
-# OBJ_DIR= - output paths not supported!
+OBJ_DIR=obj
 
 SRC:= $(shell ls $(SRC_DIR)/*.c)
-OBJ:= $(SRC:$(SRC_DIR)/%.c=%.o)
+OBJ:= $(SRC:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
 
 
 ### Phony Targets for building variants	###
@@ -26,7 +26,7 @@ dbg: $(TARGET)
 all: clean $(TARGET)
 
 # NB - Must specify opt level for pgcc (else garbage output)
-OPTFLAGS= -O2
+OPTFLAGS= -O4
 opt: OPTFLAGS= -O4
 dbg: OPTFLAGS= -g -Minfo=acc
 
@@ -47,6 +47,9 @@ gnu: clean $(TARGET)
 %.o: $(SRC_DIR)/%.cpp $(HDR_DIR)/%.h
 	$(CXX) $(OPTFLAGS) $(ACCFLAGS) $< -c
 
+$(OBJ_DIR)/%.o : %.o
+	mv $< $@
+ 
 $(TARGET): $(OBJ)
 	$(CC) $(OPTFLAGS) $(ACCFLAGS) $^ -o $@
 
