@@ -3,6 +3,8 @@ CXX = pgc++ -std=c++11
 #MAXFLAGS = -O4 -Mautoinline -acc=verystrict -ta=host,multicore,tesla -Minfo=all -mp
 #FAST = -O2 -Mautoinline -acc=verystrict
 ACCFLAGS = -Mautoinline -acc=verystrict -ta=tesla
+LDFLAGS=
+OPTFLAGS= -O4
 
 TARGET = dt
 OBJEXT = o
@@ -26,13 +28,13 @@ dbg: $(TARGET)
 all: clean $(TARGET)
 
 # NB - Must specify opt level for pgcc (else garbage output)
-OPTFLAGS= -O4
 opt: OPTFLAGS= -O4
 dbg: OPTFLAGS= -g -Minfo=acc
 
 gnu: CC= gcc -std=c11 -pedantic -Werror
 gnu: ACCFLAGS= 
 # -fopenacc # requires >=GCC6 ?
+gnu: LDFLAGS= -lm
 gnu: clean $(TARGET)
 
 
@@ -51,7 +53,7 @@ $(OBJ_DIR)/%.o : %.o
 	mv $< $@
  
 $(TARGET): $(OBJ)
-	$(CC) $(OPTFLAGS) $(ACCFLAGS) $^ -o $@
+	$(CC) $(OPTFLAGS) $(ACCFLAGS) $(LDFLAGS) $^ -o $@
 
 
 ### Phony Targets for odd jobs	###
