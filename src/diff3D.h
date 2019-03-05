@@ -68,9 +68,9 @@ extern U32 diffProcIsoD3S6M
 (
    DiffScalar * restrict pR,  // Result field(s)
    DiffScalar * restrict pS,  // Source field(s)
-   const DiffOrg * pO,        // descriptor
+   const DiffOrg         * pO, // descriptor
    const D3S6IsoWeights * pW, // [pO->nPhase]
-   const D3S6MapElem *pM,     // map (corresponding to scalar fields) describing structure
+   const D3S6MapElem    * pM, // map (corresponding to scalar fields) describing structure
    const U32  nI   // iterations
 );
 
@@ -80,7 +80,7 @@ U32 diffProcIsoD3SxM
 (
    DiffScalar * restrict pR,  // Result field(s)
    DiffScalar * restrict pS,  // Source field(s)
-   const DiffOrg        * pO, // descriptor
+   const DiffOrg       * pO, // descriptor
    const D3IsoWeights * pW,
    const D3MapElem    * pM,
    const U32 nI,

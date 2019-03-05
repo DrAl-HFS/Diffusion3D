@@ -9,7 +9,7 @@ typedef struct
    DiffOrg        org;
    DiffScalar     *pSR[2];
    D3IsoWeights   wPhase[1];
-   D3MapElem      *pM;
+   void           *pM;
    MemBuff        ws;
 } DiffTestContext;
 
@@ -21,12 +21,14 @@ static MapSiteInfo gMSI;
 
 /***/
 
+// cudaHostAlloc() / cudaHostRegister() - for pinned mem (faster copy)
+// cudaFreeHost() / cudaHostUnregister() - to undo
 Bool32 init (DiffTestContext *pC, U32 def)
 {
    initHack();
    if (initDiffOrg(&(pC->org), def, 1))
    {
-      size_t b1M= pC->org.n1F * sizeof(*(pC->pM));
+      size_t b1M= pC->org.n1F * sizeof(D3MapElem); //*(pC->pM));
       size_t b1B= pC->org.n1B * sizeof(*(pC->pSR));
       size_t b1W= pC->org.n1F * sizeof(*(pC->pSR));
       U32 nB= 0;
@@ -35,7 +37,10 @@ Bool32 init (DiffTestContext *pC, U32 def)
       pC->ws.bytes=  b1W; // 1<<28; ???
       pC->ws.p=  malloc(pC->ws.bytes);
       for (int i= 0; i<2; i++)
-         { pC->pSR[i]= malloc(b1B); nB+= (NULL != pC->pSR[i]); }
+      {
+         pC->pSR[i]= malloc(b1B);
+         nB+= (NULL != pC->pSR[i]);
+      }
       return(2 == nB);
    }
    return(0);
@@ -249,6 +254,7 @@ void scaleV3I (V3I *pR, const V3I *pS, const float s)
 
 int main (int argc, char *argv[])
 {
+   MapDesc md={0};
    int r= 0;
 
    utilTest();
@@ -264,14 +270,13 @@ int main (int argc, char *argv[])
          if (fileSize(fileName) > 0)
          {
             RawTransMethodDesc rm={0};
-            RawTransInfo ri={0};
+            
+            getProfileRM(&rm, TFR_ID_PDFPERM, MAP_ID_B1NH6, D3UF_PERM_SAVE);   // 1
 
-            getProfileRM(&rm, 2, D3UF_PERM_SAVE);   // 1
-
-            f= mapFromU8Raw(gCtx.pM, &ri, &(gCtx.ws), fileName, &rm, &(gCtx.org));
+            f= mapFromU8Raw(gCtx.pM, &md, &(gCtx.ws), fileName, &rm, &(gCtx.org));
             if (f > 0)
             {
-               gMSI.c= ri.site;
+               gMSI.c= md.site;
                printf("site= (%d,%d,%d)\n", gMSI.c.x, gMSI.c.y, gMSI.c.z);
             }
             mapID= -1;
@@ -279,7 +284,7 @@ int main (int argc, char *argv[])
       }
       if (f <= 0)
       {
-         f= setDefaultMap(gCtx.pM, &(gCtx.org.def), mapID);
+         f= setDefaultMap(gCtx.pM, &md, &(gCtx.org.def), mapID);
          scaleV3I(&(gMSI.c), &(gCtx.org.def), 0.5);
       }
 
@@ -288,7 +293,7 @@ int main (int argc, char *argv[])
       //initW(gCtx.wPhase[0].w, 0.5, 6, 0); // ***M8***
       //iT= diffProcIsoD3S6M(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), (D3S6IsoWeights*)(gCtx.wPhase), gCtx.pM, 100);
 
-      if (0 == mapID) //(f >= 0.99) // modeFlags & FLAG_NHTEST ???
+      if ((0 == mapID) && (4 == md.mapBytes)) //(f >= 0.99) // modeFlags & FLAG_NHTEST ???
       {
          static const U8 nHoods[]={6,14,18,26};
          compareAnNHI(nHoods, sizeof(nHoods), 20, 100);
@@ -300,7 +305,7 @@ int main (int argc, char *argv[])
          U32        iT=0, iN=0, testV=0, dumpR=0;
 
          //iT= 0; iN= iT & 1;
-         param.nHood=26;
+         param.nHood=md.nHood;
          param.iter= 50; if (mapID > 0) { param.iter= 200; }
          param.rD=   0.5;
          initFieldVCM(gCtx.pSR[0], &(gCtx.org), NULL, NULL, &gMSI);
@@ -312,7 +317,15 @@ int main (int argc, char *argv[])
          if (testV > 0) { resetFieldVCM(gCtx.pSR[0], &(gCtx.org), gCtx.pM, &(gDefObsKV.k), gDefObsKV.v2[1]); }
 
          initIsoW(gCtx.wPhase[0].w, 0.5, param.nHood, 0);
-         iT= diffProcIsoD3SxM(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), gCtx.wPhase, gCtx.pM, param.iter, param.nHood);
+         if (1 == md.mapBytes) // && (6 == md.nHood ))
+         {
+            D3S6IsoWeights *pW= (D3S6IsoWeights*)(gCtx.wPhase+0);
+            iT= diffProcIsoD3S6M(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), pW, gCtx.pM, param.iter);
+         }
+         else
+         {
+            iT= diffProcIsoD3SxM(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), gCtx.wPhase, gCtx.pM, param.iter, param.nHood);
+         }
          iN= iT & 1;
 
          // Clear NAN / -1 for tally

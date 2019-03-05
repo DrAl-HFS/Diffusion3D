@@ -359,7 +359,7 @@ DiffScalar initIsoW (DiffScalar w[], DiffScalar r, U32 nHood, U32 f)
 } // initIsoW
 
 
-float setDefaultMap (D3MapElem *pM, const V3I *pD, const U32 id)
+float setDefaultMap (D3MapElem *pM, MapDesc *pMD, const V3I *pD, const U32 id)
 {
    MapOrg org;
    size_t n= initMapOrg(&org, pD);
@@ -399,6 +399,7 @@ float setDefaultMap (D3MapElem *pM, const V3I *pD, const U32 id)
          break;
       }
    }
+   pMD->mapBytes=4; pMD->nHood=26; pMD->maxPermSet=0; pMD->permAlign= 26;
 #if 1
    size_t t= 0;
    for (size_t i=0; i < n; i++) { t+= bitCountZ(pM[i] ^ me); }
@@ -407,21 +408,42 @@ float setDefaultMap (D3MapElem *pM, const V3I *pD, const U32 id)
    return(1);
 } // setDefaultMap
 
-Bool32 getProfileRM (RawTransMethodDesc *pRM, U8 id, U8 f)
+Bool32 getProfileRM (RawTransMethodDesc *pRM, const U8 idT, const U8 idM, const U8 f)
 {
-   pRM->flags= f;
-   pRM->nHood= 26;
-   switch(id)
+   if (idT <= 2)
    {
-      case 1 : pRM->method= 1; pRM->maxPermLvl= 1; 
-         pRM->param[0]= 100; pRM->param[0]= 0.0; 
-         break;
-      case 2 : pRM->method= 2; pRM->maxPermLvl= (1<<3)-1; 
-         pRM->param[0]= 0.35; pRM->param[1]= 0.0;//15; 
-         break;
-      default : return(FALSE);
+      U8 mBytes=0, nHood=0, bitsFree=0;
+      switch(idM)
+      {
+         case MAP_ID_B1NH6 : mBytes= 1; nHood= 6;  bitsFree= 2;  break;
+         case MAP_ID_B4NH6 : mBytes= 4; nHood= 6;  bitsFree= 26; break;
+         case MAP_ID_B4NH18 : mBytes= 4; nHood= 18; bitsFree= 14; break;
+         case MAP_ID_B4NH26 : mBytes= 4; nHood= 26; bitsFree= 6;  break;   
+         default : return(FALSE);
+      }
+      switch(idT)
+      {
+         case TFR_ID_RAW : pRM->method= 0; pRM->maxPermLvl= 1;
+            pRM->param[0]= 0.0; pRM->param[0]= 0.0; 
+            break;
+         case TFR_ID_THRESHOLD : pRM->method= 1; pRM->maxPermLvl= 1; 
+            pRM->param[0]= 100.0; pRM->param[0]= 0.0; 
+            break;
+         case TFR_ID_PDFPERM :
+         {
+            U8 mbf= MIN(bitsFree,3);
+            bitsFree-= mbf;
+            pRM->method= 2; pRM->maxPermLvl= (1<<mbf)-1;
+            pRM->param[0]= 0.35; pRM->param[1]= 0.0;//.15; 
+            break;
+         }
+         default : return(FALSE);
+      }
+      pRM->flags= f;
+      pRM->nBNH= nHood | (mBytes<<5);
+      return(TRUE);
    }
-   return(TRUE);
+   return(FALSE);
 } // getProfileRM
 
 static void findInnoc (V3I * pV, const U8 * pPerm, const MapOrg * pO)
@@ -453,7 +475,7 @@ static void findInnoc (V3I * pV, const U8 * pPerm, const MapOrg * pO)
    }
 } // findInnoc
 
-float mapFromU8Raw (D3MapElem *pM, RawTransInfo *pRI, const MemBuff *pWS, const char *path, 
+float mapFromU8Raw (D3MapElem *pM, MapDesc *pMD, const MemBuff *pWS, const char *path, 
       const RawTransMethodDesc *pRM, const DiffOrg *pO)
 {
    float r=0;
@@ -462,8 +484,7 @@ float mapFromU8Raw (D3MapElem *pM, RawTransInfo *pRI, const MemBuff *pWS, const 
    MapOrg org;
    U8 verbose=1;
 
-   memset(pRI, 0, sizeof(*pRI));
-   //nHood, maxPermSet, permAlign;
+   memset(pMD, 0, sizeof(*pMD));
    if (initMapOrg(&org, &(pO->def)) > 0)
    {
       U8 *pRaw= pWS->p;
@@ -472,22 +493,25 @@ float mapFromU8Raw (D3MapElem *pM, RawTransInfo *pRI, const MemBuff *pWS, const 
       if (bytes >= org.n)
       {
          U8 *pPerm= pRaw;
-
+         pMD->nHood= pRM->nBNH & 0x1F;
+         pMD->mapBytes= pRM->nBNH >> 5;
          switch(pRM->method)
          {
-            case 1 :
+            case TFR_ID_THRESHOLD :
             {
                const U8 v2[2]={1,0};
-               if (thresholdNU8(pPerm, pRaw, org.n, pRM->param[0], v2) > 0) { pRI->maxPermSet= 1; }
+               if (thresholdNU8(pPerm, pRaw, org.n, pRM->param[0], v2) > 0) { pMD->maxPermSet= 1; }
                break;
             }
-            case 2 :
+            case TFR_ID_PDFPERM :
                imgU8PopTransferPerm(pPerm, pRaw, org.n, pRM->param, pRM->maxPermLvl);
-               pRI->maxPermSet= pRM->maxPermLvl; // HACK!
+               pMD->maxPermSet= pRM->maxPermLvl; // HACK!
                break;
+            default : pMD->maxPermSet= 0;
+               break; // TFR_ID_RAW
          }
-         r= processMap(pM, sizeof(*pM), 26, pPerm, &org, verbose);
-         findInnoc(&(pRI->site), pPerm, &org);
+         r= processMap(pM, pMD->mapBytes, pMD->nHood, pPerm, &org, verbose);
+         findInnoc(&(pMD->site), pPerm, &org);
          if (pRM->flags & D3UF_PERM_SAVE)
          {
             const char *name= "perm256u8.raw";
