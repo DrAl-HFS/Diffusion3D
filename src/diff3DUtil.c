@@ -475,7 +475,7 @@ static void findInnoc (V3I * pV, const U8 * pPerm, const MapOrg * pO)
    }
 } // findInnoc
 
-float mapFromU8Raw (D3MapElem *pM, MapDesc *pMD, const MemBuff *pWS, const char *path, 
+float mapFromU8Raw (void *pM, MapDesc *pMD, const MemBuff *pWS, const char *path, 
       const RawTransMethodDesc *pRM, const DiffOrg *pO)
 {
    float r=0;

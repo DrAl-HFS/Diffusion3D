@@ -322,7 +322,7 @@ int main (int argc, char *argv[])
             D3S6IsoWeights *pW= (D3S6IsoWeights*)(gCtx.wPhase+0);
             iT= diffProcIsoD3S6M(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), pW, gCtx.pM, param.iter);
          }
-         else
+         else if (4 == md.mapBytes)
          {
             iT= diffProcIsoD3SxM(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), gCtx.wPhase, gCtx.pM, param.iter, param.nHood);
          }
