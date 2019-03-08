@@ -108,7 +108,8 @@ extern void statMom3AddW (StatMomD3R2 * const pS, const SMVal x, const SMVal y, 
 extern U32 statMom1Res1 (StatResD1R2 * const pR, const StatMomD1R2 * const pS, const SMVal dof);
 extern U32 statMom3Res1 (StatResD1R2 r[3], const StatMomD3R2 * const pS, const SMVal dof);
 
-extern float binSize (char *pCh, size_t s);
+extern float binSizeZ (char *pCh, size_t s);
+extern float decSizeZ (char *pCh, size_t s);
 
 extern U32 bitCountZ (size_t u);
 

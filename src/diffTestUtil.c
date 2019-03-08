@@ -78,7 +78,7 @@ size_t resetFieldVCM (DiffScalar * pS, const DiffOrg *pO, const D3MapElem *pM, c
          {
             for (Index x= 0; x < pO->def.z; x++)
             {
-               const size_t iM= x * mapStride[0] + y * mapStride[1] + z * mapStride[2];
+               const size_t iM= dotS3(x,y,z,mapStride);//x * mapStride[0] + y * mapStride[1] + z * mapStride[2];
                if (pK->v == (pK->m & pM[iM]))
                { 
                   const size_t iS= dotS3(x,y,z,pO->stride);// x * pO->stride[0] + y * pO->stride[1] + z * pO->stride[2];
@@ -131,7 +131,7 @@ static DiffScalar compareAnalyticP (DiffScalar * restrict pTR, const DiffScalar 
             {
                const float r2= d2F3( x - c.x, y - c.y, z - c.z );
                const DiffScalar w= v * k[0] * exp(r2 * k[1]);
-               const size_t j= x * pO->stride[0] + y * pO->stride[1] + z * pO->stride[2];
+               const size_t j= x * pO->stride[0] + y * pO->stride[1] + z * pO->stride[2];//dotS3(x,y,z,pO->stride);//
                pTR[x + y * pO->def.x]+= fabs(pS[j] - w);
             }
          }
@@ -175,7 +175,7 @@ DiffScalar initAnalytic (DiffScalar * pR, const DiffOrg *pO, const DiffScalar v,
          {
             float r2= d2F3( i.x - c.x, i.y - c.y, i.z - c.z );
 
-            size_t j= i.x * pO->stride[0] + i.y * pO->stride[1] + i.z * pO->stride[2];
+            size_t j= dotS3(i.x,i.y,i.z,pO->stride);//i.x * pO->stride[0] + i.y * pO->stride[1] + i.z * pO->stride[2];
             t+= pR[j]= v * k[0] * exp(r2 * k[1]);
             //t[(r2 > r2m)]+= pR[j];
          }
@@ -198,7 +198,7 @@ DiffScalar analyseField (AnResD3R2 * pR, const DiffScalar * pS, const DiffOrg *p
       {
          for (Index x=0; x < pO->def.x; x++)
          {
-            const size_t i= x * pO->stride[0] + y * pO->stride[1] + z * pO->stride[2];
+            const size_t i= dotS3(x,y,z,pO->stride);//x * pO->stride[0] + y * pO->stride[1] + z * pO->stride[2];
             statMom3AddW(&sm3, x, y, z, pS[i]);
             mm.vMin= fmin(mm.vMin, pS[i]);
             mm.vMax= fmax(mm.vMax, pS[i]);

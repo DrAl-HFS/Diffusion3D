@@ -12,7 +12,8 @@ extern "C" {
 #endif
 
 #define D3UF_  0
-#define D3UF_PERM_SAVE  (1<<7)
+#define D3UF_PERM_SAVE     (1<<7)
+#define D3UF_CLUSTER_TEST  (1<<6)
 #define D3U_  ()
 
 #define MAP_ID_B1NH6    (0)

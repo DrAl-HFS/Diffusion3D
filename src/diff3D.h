@@ -17,6 +17,7 @@ typedef double DiffScalar;
 
 typedef signed int   Index;
 typedef signed long  Stride; // NB 64bit under PGI
+typedef signed long  Offset; //    "
 
 typedef struct { Index x, y, z; } V3I;
 typedef struct { V3I vMin, vMax; } MMV3I;

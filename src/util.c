@@ -7,6 +7,9 @@
 #define GETTIME(a) gettimeofday(a,NULL)
 #define USEC(t1,t2) (((t2).tv_sec-(t1).tv_sec)*1000000+((t2).tv_usec-(t1).tv_usec))
 
+static const char gMultChar[]=" KMGTEP";
+#define MULT_CHAR_MAX (sizeof(gMultChar)-2) // discount leading space and trailing nul
+
 /***/
 
 Bool32 validBuff (const MemBuff *pB, size_t b)
@@ -161,14 +164,22 @@ U32 statMom3Res1 (StatResD1R2 r[3], const StatMomD3R2 * const pS, const SMVal do
    return(o);
 } // statMom3Res1
 
-float binSize (char *pCh, const size_t s)
+float binSizeZ (char *pCh, const size_t s)
 {
-static const char m[]=" KMGTEP";
    int i=0;
-   while ((i < 6) && (s > (1 << (10 * (i+1))))) { ++i; }
-   *pCh= m[i];
+   while ((i < MULT_CHAR_MAX) && (s > ((size_t)1 << (10 * (i+1))))) { ++i; }
+   *pCh= gMultChar[i];
    return( (float)s / (1 << (10 * i)) );
-} // binSize
+} // binSizeZ
+
+float decSizeZ (char *pCh, size_t s)
+{
+   size_t m=1;
+   int i=0;
+   while ((i < MULT_CHAR_MAX) && (s > (1000 * m))) { ++i; m*= 1000; }
+   *pCh= gMultChar[i];
+   return( (float)s / m );
+} // decSizeZ
 
 U32 bitCountZ (size_t u)
 {

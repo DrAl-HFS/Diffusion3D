@@ -271,7 +271,7 @@ int main (int argc, char *argv[])
          {
             RawTransMethodDesc rm={0};
             
-            getProfileRM(&rm, TFR_ID_PDFPERM, MAP_ID_B1NH6, D3UF_PERM_SAVE);   // 1
+            getProfileRM(&rm, TFR_ID_PDFPERM, MAP_ID_B1NH6, D3UF_PERM_SAVE|D3UF_CLUSTER_TEST);   // 1
 
             f= mapFromU8Raw(gCtx.pM, &md, &(gCtx.ws), fileName, &rm, &(gCtx.org));
             if (f > 0)
