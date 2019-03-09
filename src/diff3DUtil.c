@@ -474,17 +474,6 @@ static int findNear (V3I * pV, const V3I *pC, const U8 * pPerm, const MapOrg * p
    return(0);
 } // findNear
 
-U32 findIMD (const U32 u[], const U32 n, const U32 v)
-{
-   U32 iM=0, m= u[0] - v;
-   for (U32 i=1; i<n; i++)
-   {
-      U32 d= u[i] - v;
-      if (d < m) { m= d; iM= i; }
-   }
-   return(iM);
-} // findIMD
-
 static int findInnoc (V3I * pV, const U8 * pPerm, const MapOrg * pO)
 {
    MMV3I mm;
@@ -522,7 +511,7 @@ float mapFromU8Raw (void *pM, MapDesc *pMD, const MemBuff *pWS, const char *path
 {
    float r=0;
    size_t bytes= fileSize(path);
-   char m;
+   char ch;
    MapOrg org;
    U8 verbose=1;
 
@@ -532,7 +521,7 @@ float mapFromU8Raw (void *pM, MapDesc *pMD, const MemBuff *pWS, const char *path
       const V3I c= {org.def.x / 2, org.def.y / 2, org.def.z / 2};
       U8 *pRaw= pWS->p;
       bytes= loadBuff(pRaw, path, MIN(bytes, pWS->bytes));
-      printf("mapFromU8Raw() - %G%cBytes\n", binSizeZ(&m, bytes), m);
+      printf("mapFromU8Raw() - %G%cBytes\n", binSizeZ(&ch, bytes), ch);
       if (bytes >= org.n)
       {
          U8 *pPerm= pRaw;
@@ -554,10 +543,6 @@ float mapFromU8Raw (void *pM, MapDesc *pMD, const MemBuff *pWS, const char *path
                break; // TFR_ID_RAW
          }
          r= processMap(pM, pMD->mapBytes, pMD->nHood, pPerm, &org, verbose);
-         if (0 == findInnoc(&(pMD->site), pPerm, &org) )
-         {
-            findNear(&(pMD->site), &c, pPerm, &org);
-         }
          if (pRM->flags & D3UF_PERM_SAVE)
          {
             const char *name= "perm256u8.raw";
@@ -568,70 +553,53 @@ float mapFromU8Raw (void *pM, MapDesc *pMD, const MemBuff *pWS, const char *path
                transLXNU8(pRaw, pPerm, org.n, lm);
             }
             bytes= saveBuff(pRaw, name, org.n);
-            printf("%s %G%cBytes\n", name, binSizeZ(&m,bytes), m);
+            printf("%s %G%cBytes\n", name, binSizeZ(&ch,bytes), ch);
          }
          if (pRM->flags & D3UF_CLUSTER_TEST)
          {
+            MemBuff ws;
+            ClustRes r;
             U8 v[2]={0,1};
+
             thresholdNU8(pPerm, pPerm, org.n, 0, v); // (perm>0) -> 1
-            MemBuff ws= *pWS;
-
-            ws.w+=      org.n; // * sizeof(*pPerm);
-            ws.bytes-=  org.n;
+            adjustBuff(&ws, pWS, org.n, 0); // * sizeof(*pPerm);
+            clusterExtract(&r, &ws, pPerm, &(org.def), org.stride);
+            if (r.iNCMax > 0)
             {
-               U32 *pI, *pC, nC, mN, mC, iM=-1;
-               //testC(org.stride);
-               U32 m= ws.bytes / sizeof(U32);
-               mN= org.n;
-               mC= 0.5 * org.n;
-               while ((mN+mC) > m)
-               { 
-                  float f= (m / (mN+mC));
-                  mN*= f;
-                  mC*= f;
-               }
-
-               pC= ws.p;
-               pC[0]= 0; pC++;
-               pI= pC+mC+1; mN-= 1;
-               printf("Cluster prep max: %unodes %uclusters\n", mN, mC);
-               nC= clusterXDBFN6(pI, pC, pPerm, &(org.def), org.stride);
-               printf("Found: %unodes %uclusters\n", pC[nC-1], nC);
-               m= 500;
-               mC= 0;
-               for (U32 i=1; i < nC; i++)
-               {
-                  U32 s= pC[i] - pC[i-1];
-                  if (s >= m)
-                  {
-                     printf("C%u : %u\n", i, s);
-                     if (s > mC) { iM= i; mC= s; }
-                  }
-               }
-               if (iM < nC)
-               {
-                  U32 v0= pC[iM-1];
-                  U32 v1= pC[iM];
-                  U32 s= v1 - v0;
-                  U32 ve= pC[nC];
-                  printf("Max: C%u : %u (%G%%)\n", iM, s, s * 100.0 / org.n);
-                  
-                  v0= pC[iM-1];
+               U32 v0= r.pNC[r.iNCMax-1];
+               U32 v1= r.pNC[r.iNCMax];
+               U32 s= v1 - v0;
+               U32 ve= r.pNC[r.iNCMax];
+               printf("Max: C%u : %u (%G%%)\n", r.iNCMax, s, s * 100.0 / org.n);
                
-                  mN= findIMD(pI+v0, s, dotS3(c.x,c.y,c.z,org.stride));
-//pC[iM-1] + s >> 1); // median
-                  split3(&(pMD->site.x), pI[mN], org.stride);
-                  printf("Mid: [%u] : %u -> (%d,%d,%d)\n", mN, pI[mN], pMD->site.x, pMD->site.y, pMD->site.z);
+               U32 midN= findNIMinD(r.pNI+v0, s, dotS3(c.x,c.y,c.z, org.stride));
+         //pC[iM-1] + s >> 1); // median
+               split3(&(pMD->site.x), r.pNI[midN], org.stride);
+               printf("Mid: [%u] : %u -> (%d,%d,%d)\n", midN, r.pNI[midN], pMD->site.x, pMD->site.y, pMD->site.z);
 
-                  for (U32 i=0; i<v0; i++) { pPerm[ pI[i] ]= 0x20; }
-                  for (U32 i=v0; i<v1; i++) { pPerm[ pI[i] ]= 0xF0; }
-                  for (U32 i=v1; i<ve; i++) { pPerm[ pI[i] ]= 0x20; }
+               if (pRM->flags & D3UF_CLUSTER_SAVE)
+               {
                   const char *name= "conn256u8.raw";
+                  for (U32 i=0; i<v0; i++) { pPerm[ r.pNI[i] ]= 0x20; }
+                  for (U32 i=v0; i<v1; i++) { pPerm[ r.pNI[i] ]= 0xF0; }
+                  for (U32 i=v1; i<ve; i++) { pPerm[ r.pNI[i] ]= 0x20; }
                   bytes= saveBuff(pPerm, name, org.n);
-                  printf("%s %G%cBytes\n", name, binSizeZ(&m,bytes), m);
+                  printf("%s %G%cBytes\n", name, binSizeZ(&ch,bytes), ch);
                }
+               bytes= sizeof(*(r.pNI))*s;
+               void *p= (void*)(ws.w + ws.bytes - bytes);
+               memmove(p, r.pNI+v0, bytes);
+               memset(&r, 0, sizeof(r));
+               r.pNI= p;
+               r.nNI= s;
             }
+            
          }
+         else if (0 == findInnoc(&(pMD->site), pPerm, &org) )
+         {
+            findNear(&(pMD->site), &c, pPerm, &org);
+         }
+
       }
    }
    return(r);

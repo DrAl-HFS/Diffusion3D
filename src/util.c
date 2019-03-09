@@ -22,6 +22,17 @@ void releaseMemBuff (MemBuff *pB)
    if (pB && pB->p) { free(pB->p); pB->p= NULL; }
 } // releaseMemBuff
 
+Bool32 adjustBuff (MemBuff *pR, const MemBuff *pB, size_t skipS, size_t skipE)
+{
+   const size_t s= skipS + skipE;
+   if (s < pB->bytes)
+   {
+      pR->w=      pB->w + skipS;
+      pR->bytes=  pB->bytes - s;
+   }
+   return(s < pB->bytes);
+} // adjustBuff
+
 const char *stripPath (const char *path)
 {
    if (path && *path)

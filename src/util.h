@@ -90,6 +90,7 @@ typedef unsigned int MBVal; // Arg holder for multi-bit/byte read/write routines
 
 extern Bool32 validBuff (const MemBuff *pB, size_t b);
 extern void releaseMemBuff (MemBuff *pB);
+extern Bool32 adjustBuff (MemBuff *pR, const MemBuff *pB, size_t skipS, size_t skipE);
 
 extern const char *stripPath (const char *path);
 
