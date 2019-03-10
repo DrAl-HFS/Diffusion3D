@@ -21,8 +21,6 @@ static MapSiteInfo gMSI;
 
 /***/
 
-// cudaHostAlloc() / cudaHostRegister() - for pinned mem (faster copy)
-// cudaFreeHost() / cudaHostUnregister() - to undo
 Bool32 init (DiffTestContext *pC, U32 def)
 {
    initHack();
@@ -30,7 +28,7 @@ Bool32 init (DiffTestContext *pC, U32 def)
    {
       size_t b1M= pC->org.n1F * sizeof(D3MapElem); //*(pC->pM));
       size_t b1B= pC->org.n1B * sizeof(*(pC->pSR));
-      size_t b1W= pC->org.n1F * sizeof(*(pC->pSR));
+      size_t b1W= 8 * b1M; //pC->org.n1F * sizeof(*(pC->pSR));
       U32 nB= 0;
 
       pC->pM= malloc(b1M);
@@ -244,7 +242,6 @@ void compareAnNHI (const U8 nHoods[], const U8 nNH, const U32 step, const U32 ma
    }
 } // compareAnNHI
 
-
 void scaleV3I (V3I *pR, const V3I *pS, const float s)
 {
    pR->x= pS->x * s;
@@ -271,14 +268,11 @@ int main (int argc, char *argv[])
          {
             RawTransMethodDesc rm={0};
             
-            getProfileRM(&rm, TFR_ID_PDFPERM, MAP_ID_B1NH6, D3UF_PERM_SAVE|D3UF_CLUSTER_TEST);   // 1
+            getProfileRM(&rm, TFR_ID_PDFPERM, MAP_ID_B1NH6, 0xFF); // D3UF_PERM_SAVE|D3UF_CLUSTER_SAVE|D3UF_CLUSTER_TEST
 
             f= mapFromU8Raw(gCtx.pM, &md, &(gCtx.ws), fileName, &rm, &(gCtx.org));
-            if (f > 0)
-            {
-               gMSI.c= md.site;
-               printf("site= (%d,%d,%d)\n", gMSI.c.x, gMSI.c.y, gMSI.c.z);
-            }
+            if (f > 0) { gMSI.c= md.site; }
+            //printf("site= (%d,%d,%d)\n", gMSI.c.x, gMSI.c.y, gMSI.c.z);
             mapID= -1;
          }
       }
@@ -288,6 +282,7 @@ int main (int argc, char *argv[])
          scaleV3I(&(gMSI.c), &(gCtx.org.def), 0.5);
       }
 
+      printf("\nmain() - initialisation complete\n----\n");
       //pragma acc set device_type(acc_device_none) no effect ???
 
       //initW(gCtx.wPhase[0].w, 0.5, 6, 0); // ***M8***

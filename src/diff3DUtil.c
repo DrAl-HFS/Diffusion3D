@@ -505,7 +505,71 @@ static int findInnoc (V3I * pV, const U8 * pPerm, const MapOrg * pO)
 } // findInnoc
 
 #include "cluster.h"
+void offsetMapTest (MemBuff ws, const U32 *pMaxNI, const U32 nNI, const U8 *pM, const MapOrg *pO)
+{
+   size_t bytes= pO->n * sizeof(U32);
+   if (ws.bytes >= bytes)
+   {  // Build spatial map for neighbour lookup, then calculate offsets per site
+      U32 *pIdxMap= ws.p;
+      const U8 nNH= 6;
+      char ch[2];
 
+      printf("Building map... %p ", pIdxMap);
+      memset(ws.p, 0, bytes);
+      adjustBuff(&ws, &ws, bytes, 0);
+      for (size_t i= 0; i < nNI; i++) { U32 j= pMaxNI[i]; pIdxMap[ j ]= i; }
+      printf("%G%cbytes\n", binSizeZ(ch,bytes), ch[0]);
+      bytes= nNI * nNH * sizeof(U32);
+      if (ws.bytes >= bytes)
+      {
+         I32 *pNHNI= ws.p;
+         U32 nNHNI= nNH * nNI, err=0,c=0;
+         printf("Computing offsets... %p ", pNHNI);
+         memset(ws.p, 0, bytes);
+         for (size_t i= 0; i < nNI; i++)
+         {
+            const size_t k= i * nNH;
+            const U32 j= pMaxNI[i];
+            const U8 m= pM[j];
+
+            err+= (i != pIdxMap[j]);
+            for (U8 h=0; h<nNH; h++)
+            {
+               if (m & (1<<h)) { pNHNI[k+h]= pIdxMap[ j + pO->step[h] ] - i; }
+            }
+         }
+         printf("%G%cbytes\n", binSizeZ(ch,bytes), ch[0]);
+         if (err > 0) { printf("ERROR: index map corrupt (%u)\n", err); }
+
+         printf("Analysing...\n");
+         MMU32 mm;
+         mm.vMin= mm.vMax= 0;
+         for (size_t i= 1; i < nNHNI; i++)
+         {
+            long d= pNHNI[i];
+            if (0 != d)
+            { 
+               if (d < pNHNI[mm.vMin] ) { mm.vMin= i; }
+               if (d > pNHNI[mm.vMax] ) { mm.vMax= i; }
+            }
+         }
+         U32 i0= mm.vMin / nNH;
+         U32 i1= mm.vMax / nNH;
+         if (i0 > i1) SWAP(U32,i0,i1);
+         U32 d= i1 - i0;
+         U32 s= d / 20;
+         printf("mm: %u %u -> %u %u (%u)\n", mm.vMin, mm.vMax, i0, i1, d);
+         for (size_t i= i0; i < i1; i+= s)
+         {
+            const size_t k= i * nNH;
+            for (U8 h=0; h < nNH; h++) { printf("%d ", pNHNI[k+h]); }
+            printf(": %u\n", i);
+         }
+         //printf("%G%cbytes\n", binSizeZ(&ch,bytes), ch);
+      } else printf("ERROR: offsetMapTest() - only %G%cbytes of %G%cbytes avail\n", binSizeZ(ch+0,ws.bytes), ch[0], binSizeZ(ch+1,bytes), ch[1]);
+   }
+} // offsetMapTest
+ 
 float mapFromU8Raw (void *pM, MapDesc *pMD, const MemBuff *pWS, const char *path, 
       const RawTransMethodDesc *pRM, const DiffOrg *pO)
 {
@@ -555,6 +619,7 @@ float mapFromU8Raw (void *pM, MapDesc *pMD, const MemBuff *pWS, const char *path
             bytes= saveBuff(pRaw, name, org.n);
             printf("%s %G%cBytes\n", name, binSizeZ(&ch,bytes), ch);
          }
+         //printf("pRM->flags=0x%02x\n", pRM->flags);
          if (pRM->flags & D3UF_CLUSTER_TEST)
          {
             MemBuff ws;
@@ -564,36 +629,42 @@ float mapFromU8Raw (void *pM, MapDesc *pMD, const MemBuff *pWS, const char *path
             thresholdNU8(pPerm, pPerm, org.n, 0, v); // (perm>0) -> 1
             adjustBuff(&ws, pWS, org.n, 0); // * sizeof(*pPerm);
             clusterExtract(&r, &ws, pPerm, &(org.def), org.stride);
+            bytes= r.nNI * sizeof(*(r.pNI)) + r.nNC * sizeof(*(r.pNC));
+            printf("Total: %G%cBytes\n", binSizeZ(&ch,bytes), ch);
             if (r.iNCMax > 0)
             {
-               U32 v0= r.pNC[r.iNCMax-1];
-               U32 v1= r.pNC[r.iNCMax];
-               U32 s= v1 - v0;
-               U32 ve= r.pNC[r.iNCMax];
-               printf("Max: C%u : %u (%G%%)\n", r.iNCMax, s, s * 100.0 / org.n);
-               
-               U32 midN= findNIMinD(r.pNI+v0, s, dotS3(c.x,c.y,c.z, org.stride));
-         //pC[iM-1] + s >> 1); // median
-               split3(&(pMD->site.x), r.pNI[midN], org.stride);
+               MMU32 maxC;
+               size_t nMaxNI= clusterResGetMM(&maxC, &r, r.iNCMax);
+               U32 ve= r.pNC[r.nNC];
+               U32 *pMaxNI= r.pNI + maxC.vMin;
+               U32 midN= findNIMinD(pMaxNI, nMaxNI, dotS3(c.x, c.y, c.z, org.stride));
+
+               bytes= nMaxNI * sizeof(*(r.pNI));
+               printf("Max: C%u : %u (%G%%) %G%cBytes\n", r.iNCMax, nMaxNI, nMaxNI * 100.0 / org.n, binSizeZ(&ch,bytes), ch);
+               //pC[iM-1] + s >> 1); // median
+               split3(&(pMD->site.x), pMaxNI[midN], org.stride);
                printf("Mid: [%u] : %u -> (%d,%d,%d)\n", midN, r.pNI[midN], pMD->site.x, pMD->site.y, pMD->site.z);
 
                if (pRM->flags & D3UF_CLUSTER_SAVE)
                {
                   const char *name= "conn256u8.raw";
-                  for (U32 i=0; i<v0; i++) { pPerm[ r.pNI[i] ]= 0x20; }
-                  for (U32 i=v0; i<v1; i++) { pPerm[ r.pNI[i] ]= 0xF0; }
-                  for (U32 i=v1; i<ve; i++) { pPerm[ r.pNI[i] ]= 0x20; }
+                  for (U32 i= 0; i < maxC.vMin; i++) { pPerm[ r.pNI[i] ]= 0x20; }
+                  for (U32 i= maxC.vMin; i < maxC.vMax; i++) { pPerm[ r.pNI[i] ]= 0xF0; }
+                  for (U32 i= maxC.vMax; i<ve; i++) { pPerm[ r.pNI[i] ]= 0x20; }
                   bytes= saveBuff(pPerm, name, org.n);
                   printf("%s %G%cBytes\n", name, binSizeZ(&ch,bytes), ch);
                }
-               bytes= sizeof(*(r.pNI))*s;
-               void *p= (void*)(ws.w + ws.bytes - bytes);
-               memmove(p, r.pNI+v0, bytes);
-               memset(&r, 0, sizeof(r));
-               r.pNI= p;
-               r.nNI= s;
+               
+               if (1 == pMD->mapBytes)
+               {  // move dominant cluster indices to end, for buffer reuse (discarding perm data)
+                  bytes= sizeof(*pMaxNI) * nMaxNI;
+                  void *p= (void*)(ws.w + ws.bytes - bytes);
+                  memset(&r, 0, sizeof(r));
+                  memmove(p, pMaxNI, bytes); pMaxNI= p;
+                  adjustBuff(&ws, pWS, 0, bytes);
+                  offsetMapTest(ws, pMaxNI, nMaxNI, pM, &org);
+               } else { printf("WARNING: offsetMapTest() - does not support mapBytes=%u\n", pMD->mapBytes); }
             }
-            
          }
          else if (0 == findInnoc(&(pMD->site), pPerm, &org) )
          {
