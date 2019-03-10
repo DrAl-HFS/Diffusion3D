@@ -514,6 +514,7 @@ void offsetMapTest (MemBuff ws, const U32 *pMaxNI, const U32 nNI, const U8 *pM, 
       const U8 nNH= 6;
       char ch[2];
 
+      clusterOptimise(pMaxNI, nNI, 1<<15); // block 32^3
       printf("Building map... %p ", pIdxMap);
       memset(ws.p, 0, bytes);
       adjustBuff(&ws, &ws, bytes, 0);
@@ -543,14 +544,17 @@ void offsetMapTest (MemBuff ws, const U32 *pMaxNI, const U32 nNI, const U8 *pM, 
 
          printf("Analysing...\n");
          MMU32 mm;
+         U32 sgn[3]= {0,};
          mm.vMin= mm.vMax= 0;
          for (size_t i= 1; i < nNHNI; i++)
          {
             long d= pNHNI[i];
+            sgn[2]+= (0 == d);
             if (0 != d)
             { 
                if (d < pNHNI[mm.vMin] ) { mm.vMin= i; }
                if (d > pNHNI[mm.vMax] ) { mm.vMax= i; }
+               sgn[(d>0)]++;
             }
          }
          U32 i0= mm.vMin / nNH;
@@ -559,6 +563,7 @@ void offsetMapTest (MemBuff ws, const U32 *pMaxNI, const U32 nNI, const U8 *pM, 
          U32 d= i1 - i0;
          U32 s= d / 20;
          printf("mm: %u %u -> %u %u (%u)\n", mm.vMin, mm.vMax, i0, i1, d);
+         printf("(+) %u (0) %u (-) %u\n", sgn[1], sgn[2], sgn[0]);
          for (size_t i= i0; i < i1; i+= s)
          {
             const size_t k= i * nNH;
