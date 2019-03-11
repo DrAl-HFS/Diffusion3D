@@ -115,6 +115,8 @@ extern float binSizeZ (char *pCh, size_t s);
 extern float decSizeZ (char *pCh, size_t s);
 
 extern U32 bitCountZ (size_t u);
+extern I32 bitNumHiZ (size_t u); // Number of highest bit set or -1
+extern U32 bitsReqI32 (I32 i); // Bits required to store value - NB - additional bit for sign flag / leading zero not included!
 
 extern int strFmtNSMV (char s[], const int maxS, const char *fmt, const SMVal v[], const int n);
 

@@ -194,22 +194,54 @@ float decSizeZ (char *pCh, size_t s)
 
 U32 bitCountZ (size_t u)
 {
-static const U8 n4b[]=
+static const U8 n4b8[]=
 {
    0, 1, 1, 2, // 0000 0001 0010 0011
    1, 2, 2, 3, // 0100 0101 0110 0111
    1, 2, 2, 3, // 1000 1001 1010 1011
    2, 3, 3, 4  // 1100 1101 1110 1111
 };
+//static const U64 n4b4=0x4332322132212110; // c+= 0xF & (n4b4 >> ((u & 0xF)<<2) );
 	U32	c=0;
-
+   
 	do
 	{
-		c+= n4b[ u & 0xF ] + n4b[ (u >> 4) & 0xF ] + n4b[ (u >> 8) & 0xF ] + n4b[ (u >> 12) & 0xF ];
+		c+= n4b8[ u & 0xF ] + n4b8[ (u >> 4) & 0xF ] + n4b8[ (u >> 8) & 0xF ] + n4b8[ (u >> 12) & 0xF ];
 		u>>=	16;
 	} while (u > 0);
 	return(c);
 } // bitCountZ
+
+I32 bitNumHiZ (size_t u)
+{
+static const I8 h4b8[]=
+{  // NB: bit numbers biased +1
+   0, 1, 2, 2, // 0000 0001 0010 0011
+   3, 3, 3, 3, // 0100 0101 0110 0111
+   4, 4, 4, 4, // 1000 1001 1010 1011
+   4, 4, 4, 4  // 1100 1101 1110 1111
+};
+	I32	h=-1;
+
+   if (0 != u)
+   {
+      register size_t t;
+      if (0 != (t= (u >> 32))) { h+= 32; u= t; }
+      if (0 != (t= (u >> 16))) { h+= 16; u= t; }
+      if (0 != (t= (u >> 8))) { h+= 8; u= t; }
+      if (0 != (t= (u >> 4))) { h+= 4; u= t; }
+      h+= h4b8[u];
+	}
+	return(h);
+} // bitNumHiZ
+
+U32 bitsReqI32 (I32 i)
+{
+   I32 w;
+   if (i < 0) { w= bitNumHiZ(-i); }
+   else { w= bitNumHiZ(i); }
+   return MAX(1,1+w);
+} // bitsReqI32
 
 extern int strFmtNSMV (char s[], const int maxS, const char *fmt, const SMVal v[], const int n)
 {
@@ -246,12 +278,23 @@ U8 bitsValZ (const size_t v)
 
 int utilTest (void)
 {
+#if 0
    char c=0;
    short s= 0;
    int i= 0;
    long l= 0;
    long long ll=0;
    printf("utilTest() - sizeof: char=%d short=%d int=%d long=%d long long=%d\n",sizeof(c),sizeof(s),sizeof(i),sizeof(l),sizeof(ll));
+#endif
+#if 0
+   size_t t=0;
+   printf("utilTest() - bit*:\n");
+   for (int i=0; i<32; i++)
+   {
+      printf("%d 0x%x %d %u %u\n", i, t, bitNumHiZ(t), bitsReqI32(t), bitsReqI32(-t));
+      t= 1<<i;
+   }
+#endif
    return(0);
 } // utilTest
 

@@ -504,6 +504,47 @@ static int findInnoc (V3I * pV, const U8 * pPerm, const MapOrg * pO)
    return(pPerm[j]);
 } // findInnoc
 
+void analyseNH6 (const I32 * pNHNI, const size_t nNHNI)
+{
+   StatMomD1R2 s[6]={0}; // nH!
+   StatResD1R2 r[6];
+   U32 t, bth[32]={0};
+
+   for (size_t i= 0; i < nNHNI; i+= 6)
+   {
+      U32 bt=0;
+      for (U8 h=0; h < 6; h++)
+      {
+         I32 d= pNHNI[i+h];
+         bt+= bitsReqI32(d);
+         statMom1AddW(s+h, d, 1); 
+      }
+      bth[bt]++;
+   }
+   float sbth= 0;
+   for (int i=0; i<32; i++) { sbth+= bth[i]; }
+   float rN= 100.0 / sbth;
+   printf("bth(%G):\n", sbth); sbth=0;
+   for (int i=0; i<32; i++)
+   {
+      if (bth[i] > 0)
+      {
+         float x=1, v= bth[i] * rN;
+         printf("%2d : %8.3G ", i, v);
+         sbth+= v;
+         while (v > x) { printf("*"); x+= 1; }
+         printf("\n");
+      }
+   }
+   printf("\n(sum=%G)\n", sbth);
+   for (U8 h=0; h < 6; h++) { statMom1Res1(r+h, s+h, 0); printf("\n%G %G %G", s[h].m[0], s[h].m[1], s[h].m[2]); }
+   printf("\nm: ");
+   for (U8 h=0; h < 6; h++) { printf("%G ", r[h].m); }
+   printf("\ns: ");
+   for (U8 h=0; h < 6; h++) { printf("%G ", sqrt(r[h].v)); }
+   printf("\n");
+} // analyse
+
 #include "cluster.h"
 void offsetMapTest (MemBuff ws, const U32 *pMaxNI, const U32 nNI, const U8 *pM, const MapOrg *pO)
 {
@@ -514,7 +555,7 @@ void offsetMapTest (MemBuff ws, const U32 *pMaxNI, const U32 nNI, const U8 *pM, 
       const U8 nNH= 6;
       char ch[2];
 
-      clusterOptimise(pMaxNI, nNI, 1<<15); // block 32^3
+      //clusterOptimise(pMaxNI, nNI, 1<<9); // useless
       printf("Building map... %p ", pIdxMap);
       memset(ws.p, 0, bytes);
       adjustBuff(&ws, &ws, bytes, 0);
@@ -543,6 +584,8 @@ void offsetMapTest (MemBuff ws, const U32 *pMaxNI, const U32 nNI, const U8 *pM, 
          if (err > 0) { printf("ERROR: index map corrupt (%u)\n", err); }
 
          printf("Analysing...\n");
+         analyseNH6(pNHNI, nNHNI);
+/*
          MMU32 mm;
          U32 sgn[3]= {0,};
          mm.vMin= mm.vMax= 0;
@@ -570,6 +613,7 @@ void offsetMapTest (MemBuff ws, const U32 *pMaxNI, const U32 nNI, const U8 *pM, 
             for (U8 h=0; h < nNH; h++) { printf("%d ", pNHNI[k+h]); }
             printf(": %u\n", i);
          }
+*/
          //printf("%G%cbytes\n", binSizeZ(&ch,bytes), ch);
       } else printf("ERROR: offsetMapTest() - only %G%cbytes of %G%cbytes avail\n", binSizeZ(ch+0,ws.bytes), ch[0], binSizeZ(ch+1,bytes), ch[1]);
    }
