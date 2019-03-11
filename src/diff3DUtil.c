@@ -504,6 +504,8 @@ static int findInnoc (V3I * pV, const U8 * pPerm, const MapOrg * pO)
    return(pPerm[j]);
 } // findInnoc
 
+#include "cluster.h"
+
 void analyseNH6 (const I32 * pNHNI, const size_t nNHNI)
 {
    StatMomD1R2 s[6]={0}; // nH!
@@ -545,7 +547,57 @@ void analyseNH6 (const I32 * pNHNI, const size_t nNHNI)
    printf("\n");
 } // analyse
 
-#include "cluster.h"
+typedef size_t NH6Pkt;
+size_t compressNH6 (MemBuff *pWS, const I32 *pNHNI, const U32 nNI)
+{
+   //const U8 bitsMap[6]={4,8,10,10,12,14}; // 58 (64 - 6)
+   size_t bytes= nNI*sizeof(NH6Pkt);
+   if (validBuff(pWS,bytes))
+   {
+      U8 h, n, br, signM; // 6 sign bits
+      U8 brv[6]={0}, sbr, msbr=0;
+      I32 t[6], d[6];
+      
+      for (size_t i= 0; i < nNI; i++)
+      {
+         memcpy(t, pNHNI+i*6, 6*sizeof(*pNHNI));
+         clusterSortAbsIA(t, 6); // NB - discards original ordering 
+         signM= 0;
+         for (h=0; h < 6; h++)
+         {  // separate sign
+            if (t[h] < 0) { t[h]= -t[h]; signM|= (1<<h); }
+         }
+         h=6; n= 0; sbr= 0;
+         d[0]= t[0];
+         while (h-- > 1)
+         {
+            d[h]= t[h] - t[h-1]; // delta
+            br= bitsReqI32(d[h]);
+            sbr+= br;
+            if (br > brv[h]) { brv[h]= br; n++; }
+         }
+         if ((n > 0) || (sbr > msbr))
+         {
+            msbr= MAX(msbr, sbr);
+            printf("%8zu: ", i);
+            //for (h=0; h < 6; h++) { printf(" %+d", pNHNI[i*6+h]); }
+            printf(" -> 0x%02x ", signM);
+            for (h=0; h < 6; h++) { printf(" %u", t[h]); }
+            printf(" ->");
+            for (h=0; h < 6; h++) { printf(" %u", d[h]); }
+            printf(" (%u)\n", sbr);
+         }
+      }
+      printf("compressNH6() - brv[]=\n");
+      for (h=0; h < 6; h++)
+      {  // separate sign
+         printf(" %u", brv[h]);
+      }
+      printf("\n");
+   }
+   return(0);
+} // compressNH6
+
 void offsetMapTest (MemBuff ws, const U32 *pMaxNI, const U32 nNI, const U8 *pM, const MapOrg *pO)
 {
    size_t bytes= pO->n * sizeof(U32);
@@ -568,6 +620,7 @@ void offsetMapTest (MemBuff ws, const U32 *pMaxNI, const U32 nNI, const U8 *pM, 
          U32 nNHNI= nNH * nNI, err=0,c=0;
          printf("Computing offsets... %p ", pNHNI);
          memset(ws.p, 0, bytes);
+         adjustBuff(&ws,&ws,bytes,0);
          for (size_t i= 0; i < nNI; i++)
          {
             const size_t k= i * nNH;
@@ -585,6 +638,7 @@ void offsetMapTest (MemBuff ws, const U32 *pMaxNI, const U32 nNI, const U8 *pM, 
 
          printf("Analysing...\n");
          analyseNH6(pNHNI, nNHNI);
+         compressNH6(&ws,pNHNI,nNI);
 /*
          MMU32 mm;
          U32 sgn[3]= {0,};
