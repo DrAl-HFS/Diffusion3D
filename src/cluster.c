@@ -12,8 +12,8 @@ size_t findNIMinD (const ClustIdx u[], const size_t n, const ClustIdx v)
    return(iM);
 } // findNIMinD
 
-Offset index3 (I32 x, I32 y, I32 z, const Stride stride[3]) { return(x * stride[0] + y * stride[1] + z * stride[2]); }
-void split3 (I32 v[3], ClustIdx o, const Stride stride[3])
+//Offset index3 (I32 x, I32 y, I32 z, const Stride stride[3]) { return(x * stride[0] + y * stride[1] + z * stride[2]); }
+void split3 (int v[3], ClustIdx o, const Stride stride[3])
 {
 #ifdef GNU
    ldiv_t d= div(o, stride[2]);
@@ -86,8 +86,9 @@ U32 clusterExtract (ClustRes *pR, const MemBuff *pWS, U8 *pImg, const V3I *pDef,
    const size_t n= pDef->x * pDef->y * pDef->z;
    size_t mN, mC;
    ClustRes r;
-
    U32 m= pWS->bytes / sizeof(ClustIdx);
+
+   if (1 != collapseDim(stride,pDef)) { return(0); }
    mN= n;
    mC= 0.5 * mN + 2;
    while ((mN+mC) > m)
@@ -139,22 +140,20 @@ U32 clusterResGetMM (MMU32 *pMM, const ClustRes *pCR, U32 iC)
 int cmpU32A (U32 *a, U32 *b) { return(*a - *b); } // ascending
 void clusterSortUA (U32 u[], U32 n) { qsort(u, n, sizeof(U32), cmpU32A); }
 
-int cmpAbsI32D (I32 *a, I32 *b) { return(abs(*b) - abs(*a)); } // descending
-void clusterSortAbsID (I32 i[], U32 n) { qsort(i, n, sizeof(I32), cmpAbsI32D); }
+int cmpAbsI32D (int *a, int *b) { return(abs(*b) - abs(*a)); } // descending
+void clusterSortAbsID (int i[], U32 n) { qsort(i, n, sizeof(int), cmpAbsI32D); }
 
 #define CLUST_SEQ_BINS 100
 #define CLUST_SEQ_MAX (CLUST_SEQ_BINS-1)
-void clusterOptimise (ClustIdx ni[], const size_t nNI)
+void clusterAssess (const ClustIdx ni[], const size_t nNI)
 {
-   U32 s=0, c=0, nc=0, hc[CLUST_SEQ_BINS]={0,}, hnc[CLUST_SEQ_BINS]={0,};
-   U32 mc=0;
+   U32 c=0, nc=0, hc[CLUST_SEQ_BINS]={0,}, hnc[CLUST_SEQ_BINS]={0,};
    for (size_t i=1; i<nNI; i++)
    {
       int d= (int)(ni[i]) - (int)(ni[i-1]);
       if (1 == abs(d))
       {
-         c++; mc= MAX(mc,c);
-         if (-1 == d) { SWAP(ClustIdx, ni[i], ni[i-1]); s++; }
+         c++;
          if (nc > 0) { hnc[MIN(CLUST_SEQ_MAX,nc)]++; nc= 0; }
       }
       else
@@ -166,7 +165,7 @@ void clusterOptimise (ClustIdx ni[], const size_t nNI)
    if (nc > 0) { hnc[MIN(CLUST_SEQ_MAX,nc)]++; nc= 0; }
    if (c > 0) { hc[MIN(CLUST_SEQ_MAX,c)]++; c= 0; }
 
-   printf("clusterOptimise() - s=%u mc=%u\n", s, mc);
+   printf("clusterAssess() -\n");
    for (int i= 0; i<CLUST_SEQ_BINS; i++)
    {
       if (hc[i] > 0)
@@ -174,7 +173,10 @@ void clusterOptimise (ClustIdx ni[], const size_t nNI)
          printf("%d: %8u %8u\n", i, hc[i], hnc[i]);
       }
    }
-} // clusterOptimise
+} // clusterAssess
+
+
+
 
 #ifdef CLUSTER_DEBUG
 

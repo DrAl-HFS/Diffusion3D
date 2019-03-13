@@ -2,12 +2,8 @@
 
 #include "clusterMap.h"
 
-
-
-
-#include "cluster.h"
-
-void analyseNH6 (const I32 * pNHNI, const size_t nNHNI)
+// DEPRECATE ?
+static void analyseNH6 (const I32 * pNHNI, const size_t nNHNI)
 {
    StatMomD1R2 s[6]={0}; // nH!
    StatResD1R2 r[6];
@@ -46,7 +42,7 @@ void analyseNH6 (const I32 * pNHNI, const size_t nNHNI)
    printf("\ns: ");
    for (U8 h=0; h < 6; h++) { printf("%G ", sqrt(r[h].v)); }
    printf("\n\n");
-} // analyse
+} // analyseNH6
 
 // NB - discards original ordering
 I32 offsetArrange (U8 *pSignM, I32 t[6], const I32 o[6])
@@ -121,7 +117,77 @@ size_t compressNH6 (MemBuff *pWS, const I32 *pNHNI, const U32 nNI, U8 verbose)
    return(0);
 } // compressNH6
 
-void clusterMapTest (MemBuff ws, const ClustIdx *pMaxNI, const size_t nNI, const U8 *pM, const MapOrg *pO)
+/*
+size_t clusterOptM (MemBuff ws, ClustIdx ni[], const size_t nNI, ClustIdx *pM, const MapOrg *pO)
+{
+   const size_t nYZ= pO->def.y * pO->def.z;
+   size_t c= 0;
+
+   for (size_t yz= 0; yz < nYZ; yz++)
+   {
+      size_t i= pO->def.x * yz;
+      const size_t h=i, j= i + pO->def.x;
+      U32 s,v;
+      do
+      {
+         while ((i < j) && (0 == pM[i])) { ++i; }
+         s= v= 0;
+         while ((i < j) && (pM[i] > 0))
+         {
+            if (++v > 1) { s+= (1 == (pM[i] - pM[i-1])); }
+            ++i; 
+         }
+         if ((v >= 3) && (s < (v-1)))
+         {
+            size_t k= i-1;
+            while ((k > h) && (1 == (pM[k+1] - pM[k])) { k--; }
+            if (k < i)
+            c++;
+         }
+      } while (i < j);
+   }
+*/
+size_t clusterOptS (ClustIdx ni[], const size_t nNI)
+{
+   U32 s=0;
+   for (size_t i=1; i<nNI; i++)
+   {
+      int d= (int)(ni[i]) - (int)(ni[i-1]);
+      if (-1 == d) { SWAP(ClustIdx, ni[i], ni[i-1]); s++; }
+   }
+   printf("clusterOptS() - s=%u\n", s);
+   return(s);
+} // clusterOptS
+size_t clusterOptM (MemBuff ws, ClustIdx ni[], const size_t nNI, ClustIdx *pM, const MapOrg *pO)
+{
+   U32 s=0;
+   for (size_t i=2; i<nNI; i++)
+   {
+      int d1= (int)(ni[i]) - (int)(ni[i-1]);
+      int d2= (int)(ni[i]) - (int)(ni[i-2]);
+      if ((2 == d2) && (1 != d1))
+      {
+         ClustIdx q= ni[i-1];
+         ClustIdx e= ni[i]-1;
+         ClustIdx e1= pM[e];
+         ClustIdx q1= pM[q];
+         if (e1 > 0)
+         {  // expected site exists
+            int c= ni[i] % pO->stride[1]; //def.x;
+            if (c >= 2) // within a row
+            {  // swap in list and map
+               SWAP(ClustIdx, pM[q], pM[e]);
+               SWAP(ClustIdx, ni[q1], ni[e1]);
+               s++;
+            }
+         }
+      }
+   }
+   printf("clusterOptM() - s=%u\n", s);
+   return(s);
+} // clusterOptM
+
+void clusterMapTest (MemBuff ws, ClustIdx *pMaxNI, const size_t nNI, const U8 *pM, const MapOrg *pO)
 {
    size_t bytes= pO->n * sizeof(ClustIdx);
    if (ws.bytes >= bytes)
@@ -130,12 +196,14 @@ void clusterMapTest (MemBuff ws, const ClustIdx *pMaxNI, const size_t nNI, const
       const U8 nNH= 6;
       char ch[2];
 
-      clusterOptimise(pMaxNI, nNI);
+      clusterOptS(pMaxNI,nNI);
       printf("Building map... %p ", pIdxMap);
       memset(ws.p, 0, bytes);
       adjustBuff(&ws, &ws, bytes, 0);
       for (size_t i= 0; i < nNI; i++) { ClustIdx j= pMaxNI[i]; pIdxMap[ j ]= i; }
       printf("%G%cbytes\n", binSizeZ(ch,bytes), ch[0]);
+      clusterOptM(ws, pMaxNI, nNI, pIdxMap, pO);
+
       bytes= nNI * nNH * sizeof(ClustIdx);
       if (ws.bytes >= bytes)
       {
@@ -161,7 +229,7 @@ void clusterMapTest (MemBuff ws, const ClustIdx *pMaxNI, const size_t nNI, const
 
          printf("Analysing...\n");
          //analyseNH6(pNHNI, nNHNI);
-         compressNH6(&ws,pNHNI,nNI,0);
+         compressNH6(&ws,pNHNI,nNI,1);
 
       } else printf("ERROR: offsetMapTest() - only %G%cbytes of %G%cbytes avail\n", binSizeZ(ch+0,ws.bytes), ch[0], binSizeZ(ch+1,bytes), ch[1]);
    }

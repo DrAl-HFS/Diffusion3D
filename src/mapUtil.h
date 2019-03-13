@@ -28,8 +28,9 @@ typedef struct
 
 /***/
 
+extern I32 collapseDim (const Stride s[3], const V3I *pDef);
 // INLINE?
-extern Offset dotS3 (Index x, Index y, Index z, const Stride s[3]);// { return( (size_t) (x*s[0]) + y*s[1] + z*s[2] ); }
+extern Offset dotS3 (Index x, Index y, Index z, const Stride s[3]);// { return( x*s[0] + y*s[1] + z*s[2] ); }
 
 extern void step6FromStride (Stride step[6], const Stride stride[3]);
 

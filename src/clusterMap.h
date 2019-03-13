@@ -10,7 +10,7 @@ extern "C" {
 #endif
 
 
-extern void clusterMapTest (MemBuff ws, const ClustIdx *pMaxNI, const size_t nNI, const U8 *pM, const MapOrg *pO);
+extern void clusterMapTest (MemBuff ws, ClustIdx *pMaxNI, const size_t nNI, const U8 *pM, const MapOrg *pO);
 
 #ifdef __cplusplus
 } // extern "C"

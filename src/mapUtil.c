@@ -2,7 +2,20 @@
 
 #include "mapUtil.h"
 
-Offset dotS3 (Index x, Index y, Index z, const Stride s[3]) { return( (size_t) (x*s[0]) + y*s[1] + z*s[2] ); }
+/***/
+
+I32 collapseDim (const Stride s[3], const V3I *pDef)
+{
+   if (0 != s[0])
+   {
+      I32 d= (pDef->x > 1) + (pDef->y > 1) + (pDef->z > 1);
+      I32 v= ((pDef->x * pDef->y) == s[2]) + (pDef->x == s[1]) + (1 == s[0]) - 1;
+      return(d - v);
+   }
+   return(-1);
+} // collapseDim
+
+Offset dotS3 (Index x, Index y, Index z, const Stride s[3]) { return( x*s[0] + y*s[1] + z*s[2] ); }
 
 void step6FromStride (Stride step[6], const Stride stride[3])
 {
