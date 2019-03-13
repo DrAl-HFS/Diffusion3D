@@ -5,7 +5,7 @@
 #ifndef DIFF_3D_H
 #define DIFF_3D_H
 
-#include "util.h"
+#include "mapUtil.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -15,14 +15,6 @@ extern "C" {
 
 typedef double DiffScalar;
 
-typedef signed int   Index;
-typedef signed long  Stride; // NB 64bit under PGI
-typedef signed long  Offset; //    "
-
-typedef struct { Index x, y, z; } V3I;
-typedef struct { V3I vMin, vMax; } MMV3I;
-
-//typedef struct { float x, y, z; } V3F;
 
 // Buffer organisation (one or more planar/interleaved scalar fields)
 typedef struct

@@ -1,9 +1,9 @@
-// ccl.h - Cluster extraction
+// cluster.h - Cluster extraction
 
 #ifndef CLUSTER_H
 #define CLUSTER_H
 
-#include "diff3D.h"
+#include "mapUtil.h"
 
 #ifdef __cplusplus
 extern "C" {

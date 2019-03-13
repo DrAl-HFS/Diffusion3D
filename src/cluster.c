@@ -1,7 +1,5 @@
 #include "cluster.h"
 
-//typedef signed long Offset;
-
 size_t findNIMinD (const ClustIdx u[], const size_t n, const ClustIdx v)
 {
    size_t iM=0;
@@ -144,34 +142,36 @@ void clusterSortUA (U32 u[], U32 n) { qsort(u, n, sizeof(U32), cmpU32A); }
 int cmpAbsI32D (I32 *a, I32 *b) { return(abs(*b) - abs(*a)); } // descending
 void clusterSortAbsID (I32 i[], U32 n) { qsort(i, n, sizeof(I32), cmpAbsI32D); }
 
-#define CLUST_SEQ_MAX 63
+#define CLUST_SEQ_BINS 100
+#define CLUST_SEQ_MAX (CLUST_SEQ_BINS-1)
 void clusterOptimise (ClustIdx ni[], const size_t nNI)
 {
-   U32 s=0, c=0, nc=0, hc[CLUST_SEQ_MAX+1]={0,}, hnc[CLUST_SEQ_MAX+1]={0,};
+   U32 s=0, c=0, nc=0, hc[CLUST_SEQ_BINS]={0,}, hnc[CLUST_SEQ_BINS]={0,};
+   U32 mc=0;
    for (size_t i=1; i<nNI; i++)
    {
-      int d= ni[i] - ni[i-1];
+      int d= (int)(ni[i]) - (int)(ni[i-1]);
       if (1 == abs(d))
       {
-         c++;
+         c++; mc= MAX(mc,c);
          if (-1 == d) { SWAP(ClustIdx, ni[i], ni[i-1]); s++; }
-         if (nc > 0) { hnc[MIN(CLUST_SEQ_MAX,nc-1)]++; nc= 0; }
+         if (nc > 0) { hnc[MIN(CLUST_SEQ_MAX,nc)]++; nc= 0; }
       }
       else
       {
          nc++;
-         if (c > 0) { hnc[MIN(CLUST_SEQ_MAX,c-1)]++; c= 0; }
+         if (c > 0) { hc[MIN(CLUST_SEQ_MAX,c)]++; c= 0; }
       }
    }
-   if (nc > 0) { hnc[MIN(CLUST_SEQ_MAX,nc-1)]++; nc= 0; }
-   if (c > 0) { hnc[MIN(CLUST_SEQ_MAX,c-1)]++; c= 0; }
+   if (nc > 0) { hnc[MIN(CLUST_SEQ_MAX,nc)]++; nc= 0; }
+   if (c > 0) { hc[MIN(CLUST_SEQ_MAX,c)]++; c= 0; }
 
-   printf("clusterOptimise() - %u swaps\n", s);
-   for (int i= 0; i<CLUST_SEQ_MAX; i++)
+   printf("clusterOptimise() - s=%u mc=%u\n", s, mc);
+   for (int i= 0; i<CLUST_SEQ_BINS; i++)
    {
       if (hc[i] > 0)
       {
-         printf("%d: %8u %8u\n", i+1, hc[i], hnc[i]);
+         printf("%d: %8u %8u\n", i, hc[i], hnc[i]);
       }
    }
 } // clusterOptimise

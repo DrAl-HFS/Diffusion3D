@@ -49,10 +49,6 @@ typedef struct
 
 /***/
 
-extern size_t dotS3 (Index x, Index y, Index z, const Stride s[3]);// { return( (size_t) (x*s[0]) + y*s[1] + z*s[2] ); }
-
-extern void adjustMMV3I (MMV3I *pR, const MMV3I *pS, const I32 a);
-
 extern size_t initDiffOrg (DiffOrg *pO, U32 def, U32 nP);
 
 extern DiffScalar initIsoW (DiffScalar w[], DiffScalar r, U32 nHood, U32 f);

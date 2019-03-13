@@ -1,0 +1,47 @@
+// mapUtil.c - utilities for map representation
+
+#include "mapUtil.h"
+
+Offset dotS3 (Index x, Index y, Index z, const Stride s[3]) { return( (size_t) (x*s[0]) + y*s[1] + z*s[2] ); }
+
+void step6FromStride (Stride step[6], const Stride stride[3])
+{
+   step[0]= -stride[0];
+   step[1]=  stride[0];
+   step[2]= -stride[1];
+   step[3]=  stride[1];
+   step[4]= -stride[2];
+   step[5]=  stride[2];
+} // step6FromStride
+
+void adjustMMV3I (MMV3I *pR, const MMV3I *pS, const I32 a)
+{
+   pR->vMin.x= pS->vMin.x - a;
+   pR->vMin.y= pS->vMin.y - a;
+   pR->vMin.z= pS->vMin.z - a;
+   pR->vMax.x= pS->vMax.x + a;
+   pR->vMax.y= pS->vMax.y + a;
+   pR->vMax.z= pS->vMax.z + a;
+} // adjustMMV3I
+
+size_t initMapOrg (MapOrg *pO, const V3I *pD)
+{
+   pO->def= *pD;
+
+   pO->stride[0]= 1;
+   pO->stride[1]= pO->def.x;
+   pO->stride[2]= pO->def.x * pO->def.y;
+
+   step6FromStride(pO->step, pO->stride);
+   diffSet6To26(pO->step);
+   //printf("initMapOrg() - s26m[]=\n");
+   //for (int i=0; i<26; i++) { printf("%d\n", pO->step[i]); }
+
+   pO->mm.vMin.x= pO->mm.vMin.y= pO->mm.vMin.z= 0;
+   pO->mm.vMax.x= pO->def.x-1;
+   pO->mm.vMax.y= pO->def.y-1;
+   pO->mm.vMax.z= pO->def.z-1;
+
+   pO->n= (size_t)pO->stride[2] * pO->def.z;
+   return(pO->n);
+} // initMapOrg
