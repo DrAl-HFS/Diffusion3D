@@ -544,76 +544,99 @@ void analyseNH6 (const I32 * pNHNI, const size_t nNHNI)
    for (U8 h=0; h < 6; h++) { printf("%G ", r[h].m); }
    printf("\ns: ");
    for (U8 h=0; h < 6; h++) { printf("%G ", sqrt(r[h].v)); }
-   printf("\n");
+   printf("\n\n");
 } // analyse
 
+// NB - discards original ordering
+I32 offsetArrange (U8 *pSignM, I32 t[6], const I32 o[6])
+{
+   U8 h, nz=0, signM=0;
+   memcpy(t, o, 6*sizeof(I32));
+   clusterSortAbsID(t, 6); // largest first: 654321
+
+   while ((nz < 6) && (0 != t[nz])) { nz++; }
+   for (h=0; (h+1) < nz; h+=2) SWAP(I32, t[h], t[h+1]); // pair swap: 563412
+
+   for (h=0; h < nz; h++)
+   {  // separate sign
+      if (t[h] < 0) { t[h]= -t[h]; signM|= (1<<h); }
+   }
+   *pSignM= signM;
+
+   for (h=0; (h+1) < nz; h+=2) { t[h+1]-= t[h]; } // pair delta: 5,(6-5),3,(4-3),1,(2-1)
+
+   return(nz);
+} // offsetArrange
+ 
 typedef size_t NH6Pkt;
-size_t compressNH6 (MemBuff *pWS, const I32 *pNHNI, const U32 nNI)
+size_t compressNH6 (MemBuff *pWS, const I32 *pNHNI, const U32 nNI, U8 verbose)
 {
    //const U8 bitsMap[6]={4,8,10,10,12,14}; // 58 (64 - 6)
    size_t bytes= nNI*sizeof(NH6Pkt);
    if (validBuff(pWS,bytes))
    {
-      U8 h, n, br, signM; // 6 sign bits
+      U8 signM; // 6 sign bits
       U8 brv[6]={0}, sbr, msbr=0;
-      I32 t[6], d[6];
-      
+      I32 d[6];
+      U32 hn[128]={0};
+
       for (size_t i= 0; i < nNI; i++)
       {
-         memcpy(t, pNHNI+i*6, 6*sizeof(*pNHNI));
-         clusterSortAbsIA(t, 6); // NB - discards original ordering 
-         signM= 0;
-         for (h=0; h < 6; h++)
-         {  // separate sign
-            if (t[h] < 0) { t[h]= -t[h]; signM|= (1<<h); }
-         }
-         h=6; n= 0; sbr= 0;
-         d[0]= t[0];
-         while (h-- > 1)
+         offsetArrange(&signM, d, pNHNI+i*6);
+         sbr= 0;
+         for (U8 h=0; h<6; h++)
          {
-            d[h]= t[h] - t[h-1]; // delta
-            br= bitsReqI32(d[h]);
+            U8 br= bitsReqI32(d[h]);
             sbr+= br;
-            if (br > brv[h]) { brv[h]= br; n++; }
+            if (br > brv[h]) { brv[h]= br; }
          }
-         if ((n > 0) || (sbr > msbr))
+         if (verbose && (sbr >= msbr))
          {
-            msbr= MAX(msbr, sbr);
             printf("%8zu: ", i);
             //for (h=0; h < 6; h++) { printf(" %+d", pNHNI[i*6+h]); }
             printf(" -> 0x%02x ", signM);
-            for (h=0; h < 6; h++) { printf(" %u", t[h]); }
-            printf(" ->");
-            for (h=0; h < 6; h++) { printf(" %u", d[h]); }
+            for (U8 h=0; h < 6; h++) { printf(" %u", d[h]); }
+            //printf(" ->");
+            //for (h=0; h < 6; h++) { printf(" %u", d[h]); }
             printf(" (%u)\n", sbr);
          }
+         msbr= MAX(msbr, sbr);
+         hn[sbr]++;
       }
       printf("compressNH6() - brv[]=\n");
-      for (h=0; h < 6; h++)
-      {  // separate sign
-         printf(" %u", brv[h]);
+      for (U8 h=0; h < 6; h++) { printf(" %u", brv[h]); }
+      if (verbose)
+      {
+         printf("\nhnb:\n");
+         for (int i=0; i<128; i++)
+         {
+            if (hn[i] > 0)
+            {
+               printf("%3d: %8u\n", i, hn[i]);
+            }
+         }
       }
-      printf("\n");
+
    }
    return(0);
 } // compressNH6
 
-void offsetMapTest (MemBuff ws, const U32 *pMaxNI, const U32 nNI, const U8 *pM, const MapOrg *pO)
+void offsetMapTest (MemBuff ws, const ClustIdx *pMaxNI, const size_t nNI, const U8 *pM, const MapOrg *pO)
 {
-   size_t bytes= pO->n * sizeof(U32);
+   size_t bytes= pO->n * sizeof(ClustIdx);
    if (ws.bytes >= bytes)
    {  // Build spatial map for neighbour lookup, then calculate offsets per site
-      U32 *pIdxMap= ws.p;
+      ClustIdx *pIdxMap= ws.p;
       const U8 nNH= 6;
       char ch[2];
 
-      //clusterOptimise(pMaxNI, nNI, 1<<9); // useless
+      clusterOptimise(pMaxNI, nNI);
       printf("Building map... %p ", pIdxMap);
       memset(ws.p, 0, bytes);
       adjustBuff(&ws, &ws, bytes, 0);
-      for (size_t i= 0; i < nNI; i++) { U32 j= pMaxNI[i]; pIdxMap[ j ]= i; }
+      for (size_t i= 0; i < nNI; i++) { ClustIdx j= pMaxNI[i]; pIdxMap[ j ]= i; }
       printf("%G%cbytes\n", binSizeZ(ch,bytes), ch[0]);
-      bytes= nNI * nNH * sizeof(U32);
+      bytes= nNI * nNH * sizeof(ClustIdx);
       if (ws.bytes >= bytes)
       {
          I32 *pNHNI= ws.p;
@@ -624,7 +647,7 @@ void offsetMapTest (MemBuff ws, const U32 *pMaxNI, const U32 nNI, const U8 *pM, 
          for (size_t i= 0; i < nNI; i++)
          {
             const size_t k= i * nNH;
-            const U32 j= pMaxNI[i];
+            const ClustIdx j= pMaxNI[i];
             const U8 m= pM[j];
 
             err+= (i != pIdxMap[j]);
@@ -637,38 +660,9 @@ void offsetMapTest (MemBuff ws, const U32 *pMaxNI, const U32 nNI, const U8 *pM, 
          if (err > 0) { printf("ERROR: index map corrupt (%u)\n", err); }
 
          printf("Analysing...\n");
-         analyseNH6(pNHNI, nNHNI);
-         compressNH6(&ws,pNHNI,nNI);
-/*
-         MMU32 mm;
-         U32 sgn[3]= {0,};
-         mm.vMin= mm.vMax= 0;
-         for (size_t i= 1; i < nNHNI; i++)
-         {
-            long d= pNHNI[i];
-            sgn[2]+= (0 == d);
-            if (0 != d)
-            { 
-               if (d < pNHNI[mm.vMin] ) { mm.vMin= i; }
-               if (d > pNHNI[mm.vMax] ) { mm.vMax= i; }
-               sgn[(d>0)]++;
-            }
-         }
-         U32 i0= mm.vMin / nNH;
-         U32 i1= mm.vMax / nNH;
-         if (i0 > i1) SWAP(U32,i0,i1);
-         U32 d= i1 - i0;
-         U32 s= d / 20;
-         printf("mm: %u %u -> %u %u (%u)\n", mm.vMin, mm.vMax, i0, i1, d);
-         printf("(+) %u (0) %u (-) %u\n", sgn[1], sgn[2], sgn[0]);
-         for (size_t i= i0; i < i1; i+= s)
-         {
-            const size_t k= i * nNH;
-            for (U8 h=0; h < nNH; h++) { printf("%d ", pNHNI[k+h]); }
-            printf(": %u\n", i);
-         }
-*/
-         //printf("%G%cbytes\n", binSizeZ(&ch,bytes), ch);
+         //analyseNH6(pNHNI, nNHNI);
+         compressNH6(&ws,pNHNI,nNI,0);
+
       } else printf("ERROR: offsetMapTest() - only %G%cbytes of %G%cbytes avail\n", binSizeZ(ch+0,ws.bytes), ch[0], binSizeZ(ch+1,bytes), ch[1]);
    }
 } // offsetMapTest
