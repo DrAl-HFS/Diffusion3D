@@ -2,46 +2,38 @@
 
 #include "clusterMap.h"
 
-// DEPRECATE ?
 static void analyseNH6 (const I32 * pNHNI, const size_t nNHNI)
 {
-   StatMomD1R2 s[6]={0}; // nH!
-   StatResD1R2 r[6];
-   U32 t, bth[32]={0};
+   U32 hlb[6][32]={0,}, htb[128]={0,};
 
    for (size_t i= 0; i < nNHNI; i+= 6)
    {
-      U32 bt=0;
-      for (U8 h=0; h < 6; h++)
+      U32 b, bt=0;
+      for (U8 l=0; l < 6; l++)
       {
-         I32 d= pNHNI[i+h];
-         bt+= bitsReqI32(d);
-         statMom1AddW(s+h, d, 1); 
+         I32 d= pNHNI[i+l];
+         b= 1 + bitsReqI32(d); // NB signed representation requires extra bit!
+         bt+= b;
+         hlb[l][b]++;
       }
-      bth[bt]++;
+      htb[bt]++;
    }
-   float sbth= 0;
-   for (int i=0; i<32; i++) { sbth+= bth[i]; }
-   float rN= 100.0 / sbth;
-   printf("bth(%G):\n", sbth); sbth=0;
-   for (int i=0; i<32; i++)
+   printf("analyseNH6() -\n");
+   printf("Raw bits per link dist. :\n");
+   for (U32 b=0; b<32; b++)
    {
-      if (bth[i] > 0)
+      U32 s= 0;
+      for (U8 l=0; l < 6; l++) { s+= hlb[l][b]; }
+      if (s > 0)
       {
-         float x=1, v= bth[i] * rN;
-         printf("%2d : %8.3G ", i, v);
-         sbth+= v;
-         while (v > x) { printf("*"); x+= 1; }
+         printf("%2u: ",b);
+         for (U8 l=0; l < 6; l++) { printf("%8u ",hlb[l][b]); }
          printf("\n");
       }
    }
-   printf("\n(sum=%G)\n", sbth);
-   for (U8 h=0; h < 6; h++) { statMom1Res1(r+h, s+h, 0); printf("\n%G %G %G", s[h].m[0], s[h].m[1], s[h].m[2]); }
-   printf("\nm: ");
-   for (U8 h=0; h < 6; h++) { printf("%G ", r[h].m); }
-   printf("\ns: ");
-   for (U8 h=0; h < 6; h++) { printf("%G ", sqrt(r[h].v)); }
-   printf("\n\n");
+   printf("Raw bits per site dist. :\n");
+   for (U32 b=0; b < 128; b++) { if (htb[b] > 0) { printf("%2u: %8u\n", b, htb[b]); } }
+   printf("\n");
 } // analyseNH6
 
 // NB - discards original ordering
@@ -71,83 +63,56 @@ size_t compressNH6 (MemBuff *pWS, const I32 *pNHNI, const U32 nNI, U8 verbose)
    size_t bytes= nNI*sizeof(NH6Pkt);
    if (validBuff(pWS,bytes))
    {
+      U32 hlb[6][32]={0,}, htb[128]={0,};
       U8 signM; // 6 sign bits
-      U8 brv[6]={0}, sbr, msbr=0;
-      I32 d[6];
-      U32 hn[128]={0};
+      I32 d[6]; // transformed offsets
+      U32 mbt=0;
 
+      if (verbose) { printf("compressNH6() -\n\tIdx:\tSGNF\tL0..5\n"); }
       for (size_t i= 0; i < nNI; i++)
       {
+         U32 b, bt=0;
          offsetArrange(&signM, d, pNHNI+i*6);
-         sbr= 0;
-         for (U8 h=0; h<6; h++)
+         for (U8 l=0; l<6; l++)
          {
-            U8 br= bitsReqI32(d[h]);
-            sbr+= br;
-            if (br > brv[h]) { brv[h]= br; }
+            U8 b= bitsReqI32(d[l]);
+            bt+= b;
+            hlb[l][b]++;
          }
-         if (verbose && (sbr >= msbr))
+         if (verbose && (bt > mbt))
          {
+            mbt= bt;
             printf("%8zu: ", i);
             //for (h=0; h < 6; h++) { printf(" %+d", pNHNI[i*6+h]); }
             printf(" -> 0x%02x ", signM);
-            for (U8 h=0; h < 6; h++) { printf(" %u", d[h]); }
+            for (U8 l=0; l < 6; l++) { printf(" %u", d[l]); }
             //printf(" ->");
             //for (h=0; h < 6; h++) { printf(" %u", d[h]); }
-            printf(" (%u)\n", sbr);
+            printf(" (%u)\n", bt);
          }
-         msbr= MAX(msbr, sbr);
-         hn[sbr]++;
+         htb[bt]++;
       }
-      printf("compressNH6() - brv[]=\n");
-      for (U8 h=0; h < 6; h++) { printf(" %u", brv[h]); }
-      if (verbose)
+      printf("\ncompressNH6() -\n");
+      printf("Trans. bits per link dist. :\n");
+      for (U32 b=0; b<32; b++)
       {
-         printf("\nhnb:\n");
-         for (int i=0; i<128; i++)
+         U32 s= 0;
+         for (U8 l=0; l < 6; l++) { s+= hlb[l][b]; }
+         if (s > 0)
          {
-            if (hn[i] > 0)
-            {
-               printf("%3d: %8u\n", i, hn[i]);
-            }
+            printf("%2u: ",b);
+            for (U8 l=0; l < 6; l++) { printf("%8u ",hlb[l][b]); }
+            printf("\n");
          }
       }
-
+      printf("Trans. bits per site dist. :\n");
+      for (U32 b=0; b < 128; b++) { if (htb[b] > 0) { printf("%2u: %8u\n", b, htb[b]); } }
+      printf("\n");
    }
    return(0);
 } // compressNH6
 
-/*
-size_t clusterOptM (MemBuff ws, ClustIdx ni[], const size_t nNI, ClustIdx *pM, const MapOrg *pO)
-{
-   const size_t nYZ= pO->def.y * pO->def.z;
-   size_t c= 0;
-
-   for (size_t yz= 0; yz < nYZ; yz++)
-   {
-      size_t i= pO->def.x * yz;
-      const size_t h=i, j= i + pO->def.x;
-      U32 s,v;
-      do
-      {
-         while ((i < j) && (0 == pM[i])) { ++i; }
-         s= v= 0;
-         while ((i < j) && (pM[i] > 0))
-         {
-            if (++v > 1) { s+= (1 == (pM[i] - pM[i-1])); }
-            ++i; 
-         }
-         if ((v >= 3) && (s < (v-1)))
-         {
-            size_t k= i-1;
-            while ((k > h) && (1 == (pM[k+1] - pM[k])) { k--; }
-            if (k < i)
-            c++;
-         }
-      } while (i < j);
-   }
-*/
-size_t clusterOptS (ClustIdx ni[], const size_t nNI)
+size_t clusterReorderS (ClustIdx ni[], const size_t nNI)
 {
    U32 s=0;
    for (size_t i=1; i<nNI; i++)
@@ -155,10 +120,10 @@ size_t clusterOptS (ClustIdx ni[], const size_t nNI)
       int d= (int)(ni[i]) - (int)(ni[i-1]);
       if (-1 == d) { SWAP(ClustIdx, ni[i], ni[i-1]); s++; }
    }
-   printf("clusterOptS() - s=%u\n", s);
+   printf("clusterReorderS() - s=%u\n", s);
    return(s);
-} // clusterOptS
-size_t clusterOptM (MemBuff ws, ClustIdx ni[], const size_t nNI, ClustIdx *pM, const MapOrg *pO)
+} // clusterReorderS
+size_t clusterReorderM (MemBuff ws, ClustIdx ni[], const size_t nNI, ClustIdx *pM, const MapOrg *pO)
 {
    U32 s=0;
    for (size_t i=2; i<nNI; i++)
@@ -183,9 +148,9 @@ size_t clusterOptM (MemBuff ws, ClustIdx ni[], const size_t nNI, ClustIdx *pM, c
          }
       }
    }
-   printf("clusterOptM() - s=%u\n", s);
+   printf("clusterReorderM() - s=%u\n", s);
    return(s);
-} // clusterOptM
+} // clusterReorderM
 
 void clusterMapTest (MemBuff ws, ClustIdx *pMaxNI, const size_t nNI, const U8 *pM, const MapOrg *pO)
 {
@@ -195,14 +160,15 @@ void clusterMapTest (MemBuff ws, ClustIdx *pMaxNI, const size_t nNI, const U8 *p
       ClustIdx *pIdxMap= ws.p;
       const U8 nNH= 6;
       char ch[2];
+      U8 f= CLF_VERBOSE|CLF_REORDER1|CLF_REORDER2;
 
-      clusterOptS(pMaxNI,nNI);
+      if (f & CLF_REORDER1) { clusterReorderS(pMaxNI,nNI); }
       printf("Building map... %p ", pIdxMap);
       memset(ws.p, 0, bytes);
       adjustBuff(&ws, &ws, bytes, 0);
       for (size_t i= 0; i < nNI; i++) { ClustIdx j= pMaxNI[i]; pIdxMap[ j ]= i; }
       printf("%G%cbytes\n", binSizeZ(ch,bytes), ch[0]);
-      clusterOptM(ws, pMaxNI, nNI, pIdxMap, pO);
+      if (f & CLF_REORDER2) { clusterReorderM(ws, pMaxNI, nNI, pIdxMap, pO); }
 
       bytes= nNI * nNH * sizeof(ClustIdx);
       if (ws.bytes >= bytes)
@@ -228,8 +194,8 @@ void clusterMapTest (MemBuff ws, ClustIdx *pMaxNI, const size_t nNI, const U8 *p
          if (err > 0) { printf("ERROR: index map corrupt (%u)\n", err); }
 
          printf("Analysing...\n");
-         //analyseNH6(pNHNI, nNHNI);
-         compressNH6(&ws,pNHNI,nNI,1);
+         analyseNH6(pNHNI, nNHNI);
+         compressNH6(&ws,pNHNI,nNI,f&CLF_VERBOSE);
 
       } else printf("ERROR: offsetMapTest() - only %G%cbytes of %G%cbytes avail\n", binSizeZ(ch+0,ws.bytes), ch[0], binSizeZ(ch+1,bytes), ch[1]);
    }

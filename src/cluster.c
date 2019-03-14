@@ -137,16 +137,21 @@ U32 clusterResGetMM (MMU32 *pMM, const ClustRes *pCR, U32 iC)
    return(0);
 } // clusterResGetMM
 
+#ifdef __GNUC__
+#define CMPFNCAST (__compar_fn_t)
+#else
+#define CMPFNCAST
+#endif
 int cmpU32A (U32 *a, U32 *b) { return(*a - *b); } // ascending
-void clusterSortUA (U32 u[], U32 n) { qsort(u, n, sizeof(U32), cmpU32A); }
+void clusterSortUA (U32 u[], U32 n) { qsort(u, n, sizeof(U32), CMPFNCAST cmpU32A); }
 
 int cmpAbsI32D (int *a, int *b) { return(abs(*b) - abs(*a)); } // descending
-void clusterSortAbsID (int i[], U32 n) { qsort(i, n, sizeof(int), cmpAbsI32D); }
+void clusterSortAbsID (int i[], U32 n) { qsort(i, n, sizeof(int), CMPFNCAST cmpAbsI32D); }
 
 #define CLUST_SEQ_BINS 100
 #define CLUST_SEQ_MAX (CLUST_SEQ_BINS-1)
 void clusterAssess (const ClustIdx ni[], const size_t nNI)
-{
+{  // Local disorder of indices
    U32 c=0, nc=0, hc[CLUST_SEQ_BINS]={0,}, hnc[CLUST_SEQ_BINS]={0,};
    for (size_t i=1; i<nNI; i++)
    {

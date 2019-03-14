@@ -37,6 +37,9 @@ void adjustMMV3I (MMV3I *pR, const MMV3I *pS, const I32 a)
    pR->vMax.z= pS->vMax.z + a;
 } // adjustMMV3I
 
+// HACK - function from diff3D.c/.h (uses mapUtil.h) - need to refactor again at some point...
+extern void diffSet6To26 (Stride s26[]);
+
 size_t initMapOrg (MapOrg *pO, const V3I *pD)
 {
    pO->def= *pD;
