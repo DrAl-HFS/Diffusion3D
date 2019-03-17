@@ -219,7 +219,7 @@ static void constrainMapNH (void * const pM, const U8 nMB, const U8 nNH, const U
    }
 } // constrainMapNH
 
-#include "diffTestUtil.h"
+//#include "diffTestUtil.h"
 
 float processMap (void * pM, const U8 nMapBytes, const U8 nNHBits, const U8 * pPerm, const MapOrg * pO, U8 v)
 {
@@ -236,15 +236,15 @@ float processMap (void * pM, const U8 nMapBytes, const U8 nNHBits, const U8 * pP
          if (pd[i] > 0) { printf("%d: %12zu = %G%%\n", i, pd[i], r * pd[i]); } 
       }
       printf("\n");
-      if (4 == nMapBytes) { dumpDMMBC(pPerm, pM, pO->n, -1); }
+      //if (4 == nMapBytes) { dumpDMMBC(pPerm, pM, pO->n, -1); }
    }
    printf("seal...\n");
    sealBoundaryMapNH(pM, nMapBytes, pO, gExtMask);
-   if ((v > 0) && (4 == nMapBytes)) { dumpDMMBC(pPerm, pM, pO->n, (1<<nNHBits)-1); }
+   //if ((v > 0) && (4 == nMapBytes)) { dumpDMMBC(pPerm, pM, pO->n, (1<<nNHBits)-1); }
 
    printf("constrain...\n");
    constrainMapNH(pM, nMapBytes, nNHBits, pPerm, pO);
-   if ((v > 0) && (4 == nMapBytes)) { dumpDMMBC(pPerm, pM, pO->n, (1<<nNHBits)-1); }
+   //if ((v > 0) && (4 == nMapBytes)) { dumpDMMBC(pPerm, pM, pO->n, (1<<nNHBits)-1); }
 
    return((float)(pO->n - pd[0]) / pO->n );
 } // processMap
@@ -351,7 +351,7 @@ float setDefaultMap (D3MapElem *pM, MapDesc *pMD, const V3I *pD, const U32 id)
          break;
       }
    }
-   pMD->mapBytes=4; pMD->nHood=26; pMD->maxPermSet=0; pMD->permAlign= 26;
+   pMD->mapElemBytes=4; pMD->nHood=26; pMD->maxPermSet=0; pMD->permAlign= 26;
 #if 1
    size_t t= 0;
    for (size_t i=0; i < n; i++) { t+= bitCountZ(pM[i] ^ me); }
@@ -461,23 +461,28 @@ float mapFromU8Raw (void *pM, MapDesc *pMD, const MemBuff *pWS, const char *path
       const RawTransMethodDesc *pRM, const DiffOrg *pO)
 {
    float r=0;
-   size_t bytes= fileSize(path);
+   size_t bytes;
    char ch;
    MapOrg org;
    U8 verbose=1;
 
-   memset(pMD, 0, sizeof(*pMD));
-   if (initMapOrg(&org, &(pO->def)) > 0)
+   if (path) { bytes= fileSize(path); } else { bytes= pO->n1F; }
+   if (pMD) { memset(pMD, 0, sizeof(*pMD)); }
+   if (validMemBuff(pWS,bytes) && (initMapOrg(&org, &(pO->def)) > 0))
    {
       const V3I c= {org.def.x / 2, org.def.y / 2, org.def.z / 2};
-      U8 *pRaw= pWS->p;
-      bytes= loadBuff(pRaw, path, MIN(bytes, pWS->bytes));
-      printf("mapFromU8Raw() - %G%cBytes\n", binSizeZ(&ch, bytes), ch);
+      U8 *pRaw= pWS->p;;
+      if (path)
+      {
+         bytes= loadBuff(pRaw, path, MIN(bytes, pWS->bytes));
+         printf("mapFromU8Raw() - %G%cBytes\n", binSizeZ(&ch, bytes), ch);
+         pRaw= pWS->p;
+      } else { memcpy(pRaw, pM, bytes); }
       if (bytes >= org.n)
       {
          U8 *pPerm= pRaw;
          pMD->nHood= pRM->nBNH & 0x1F;
-         pMD->mapBytes= pRM->nBNH >> 5;
+         pMD->mapElemBytes= pRM->nBNH >> 5;
          switch(pRM->method)
          {
             case TFR_ID_THRESHOLD :
@@ -493,7 +498,7 @@ float mapFromU8Raw (void *pM, MapDesc *pMD, const MemBuff *pWS, const char *path
             default : pMD->maxPermSet= 0;
                break; // TFR_ID_RAW
          }
-         r= processMap(pM, pMD->mapBytes, pMD->nHood, pPerm, &org, verbose);
+         r= processMap(pM, pMD->mapElemBytes, pMD->nHood, pPerm, &org, verbose);
          if (pRM->flags & D3UF_PERM_SAVE)
          {
             const char *name= "perm256u8.raw";
@@ -514,7 +519,7 @@ float mapFromU8Raw (void *pM, MapDesc *pMD, const MemBuff *pWS, const char *path
             U8 v[2]={0,1};
 
             thresholdNU8(pPerm, pPerm, org.n, 0, v); // (perm>0) -> 1
-            adjustBuff(&ws, pWS, org.n, 0); // * sizeof(*pPerm);
+            adjustMemBuff(&ws, pWS, org.n, 0); // * sizeof(*pPerm);
             clusterExtract(&r, &ws, pPerm, &(org.def), org.stride);
             bytes= r.nNI * sizeof(*(r.pNI)) + r.nNC * sizeof(*(r.pNC));
             printf("Total: %G%cBytes\n", binSizeZ(&ch,bytes), ch);
@@ -542,15 +547,15 @@ float mapFromU8Raw (void *pM, MapDesc *pMD, const MemBuff *pWS, const char *path
                   printf("%s %G%cBytes\n", name, binSizeZ(&ch,bytes), ch);
                }
                
-               if (1 == pMD->mapBytes)
+               if (1 == pMD->mapElemBytes)
                {  // move dominant cluster indices to end, for buffer reuse (discarding perm data)
                   bytes= sizeof(*pMaxNI) * nMaxNI;
                   void *p= (void*)(ws.w + ws.bytes - bytes);
                   memset(&r, 0, sizeof(r));
                   memmove(p, pMaxNI, bytes); pMaxNI= p;
-                  adjustBuff(&ws, pWS, 0, bytes);
+                  adjustMemBuff(&ws, pWS, 0, bytes);
                   clusterMapTest(ws, pMaxNI, nMaxNI, pM, &org);
-               } else { printf("WARNING: offsetMapTest() - does not support mapBytes=%u\n", pMD->mapBytes); }
+               } else { printf("WARNING: offsetMapTest() - does not support mapBytes=%u\n", pMD->mapElemBytes); }
             }
          }
          else if (0 == findInnoc(&(pMD->site), pPerm, &org) )

@@ -1,6 +1,6 @@
 // diff3DUtil.h - 3D Diffusion under OpenACC
 // https://github.com/DrAl-HFS/Diffusion3D.git
-// (c) Diffusion3D Project Contributors Jan 2019
+// (c) Diffusion3D Project Contributors Jan-March 2019
 
 #ifndef DIFF_3D_UTIL_H
 #define DIFF_3D_UTIL_H
@@ -11,7 +11,7 @@
 extern "C" {
 #endif
 
-#define D3UF_  0
+#define D3UF_NONE          0
 #define D3UF_PERM_SAVE     (1<<7)
 #define D3UF_CLUSTER_SAVE  (1<<6)
 #define D3UF_CLUSTER_TEST  (1<<5)
@@ -42,7 +42,7 @@ typedef struct
 
 typedef struct
 {
-   U8 mapBytes, nHood, maxPermSet, permAlign;
+   U8 mapElemBytes, nHood, maxPermSet, permAlign;
    V3I site;
 } MapDesc;
 

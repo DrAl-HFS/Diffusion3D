@@ -61,7 +61,7 @@ typedef size_t NH6Pkt;
 size_t compressNH6 (MemBuff *pWS, const I32 *pNHNI, const U32 nNI, U8 verbose)
 {
    size_t bytes= nNI*sizeof(NH6Pkt);
-   if (validBuff(pWS,bytes))
+   if (validMemBuff(pWS,bytes))
    {
       U32 hlb[6][32]={0,}, htb[128]={0,};
       U8 signM; // 6 sign bits
@@ -165,7 +165,7 @@ void clusterMapTest (MemBuff ws, ClustIdx *pMaxNI, const size_t nNI, const U8 *p
       if (f & CLF_REORDER1) { clusterReorderS(pMaxNI,nNI); }
       printf("Building map... %p ", pIdxMap);
       memset(ws.p, 0, bytes);
-      adjustBuff(&ws, &ws, bytes, 0);
+      adjustMemBuff(&ws, &ws, bytes, 0);
       for (size_t i= 0; i < nNI; i++) { ClustIdx j= pMaxNI[i]; pIdxMap[ j ]= i; }
       printf("%G%cbytes\n", binSizeZ(ch,bytes), ch[0]);
       if (f & CLF_REORDER2) { clusterReorderM(ws, pMaxNI, nNI, pIdxMap, pO); }
@@ -177,7 +177,7 @@ void clusterMapTest (MemBuff ws, ClustIdx *pMaxNI, const size_t nNI, const U8 *p
          U32 nNHNI= nNH * nNI, err=0,c=0;
          printf("Computing offsets... %p ", pNHNI);
          memset(ws.p, 0, bytes);
-         adjustBuff(&ws,&ws,bytes,0);
+         adjustMemBuff(&ws,&ws,bytes,0);
          for (size_t i= 0; i < nNI; i++)
          {
             const size_t k= i * nNH;

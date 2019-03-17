@@ -12,17 +12,32 @@ static const char gMultChar[]=" KMGTEP";
 
 /***/
 
-Bool32 validBuff (const MemBuff *pB, size_t b)
+Bool32 validMemBuff (const MemBuff *pB, const size_t bytes)
 {
-   return(pB && pB->p && (pB->bytes >= b));
-} // validBuff
+   return(pB && pB->p && (pB->bytes >= bytes));
+} // validMemBuff
+
+Bool32 allocMemBuff (MemBuff *pB, const size_t bytes)
+{
+   if (pB)
+   {
+      void *p= malloc(bytes);
+      if (p)
+      { 
+         if (NULL != pB->p) { printf("WARNING: allocMemBuff() - overwriting %p\n", pB->p);}
+         pB->p= p; pB->bytes= bytes;
+         return(TRUE);
+      }
+   }
+   return(FALSE);
+} // allocMemBuff
 
 void releaseMemBuff (MemBuff *pB)
 {
    if (pB && pB->p) { free(pB->p); pB->p= NULL; }
 } // releaseMemBuff
 
-Bool32 adjustBuff (MemBuff *pR, const MemBuff *pB, size_t skipS, size_t skipE)
+Bool32 adjustMemBuff (MemBuff *pR, const MemBuff *pB, size_t skipS, size_t skipE)
 {
    const size_t s= skipS + skipE;
    if (s < pB->bytes)
@@ -31,7 +46,7 @@ Bool32 adjustBuff (MemBuff *pR, const MemBuff *pB, size_t skipS, size_t skipE)
       pR->bytes=  pB->bytes - s;
    }
    return(s < pB->bytes);
-} // adjustBuff
+} // adjustMemBuff
 
 const char *stripPath (const char *path)
 {
@@ -202,14 +217,14 @@ static const U8 n4b8[]=
    2, 3, 3, 4  // 1100 1101 1110 1111
 };
 //static const U64 n4b4=0x4332322132212110; // c+= 0xF & (n4b4 >> ((u & 0xF)<<2) );
-	U32	c=0;
+   U32   c=0;
    
-	do
-	{
-		c+= n4b8[ u & 0xF ] + n4b8[ (u >> 4) & 0xF ] + n4b8[ (u >> 8) & 0xF ] + n4b8[ (u >> 12) & 0xF ];
-		u>>=	16;
-	} while (u > 0);
-	return(c);
+   do
+   {
+      c+= n4b8[ u & 0xF ] + n4b8[ (u >> 4) & 0xF ] + n4b8[ (u >> 8) & 0xF ] + n4b8[ (u >> 12) & 0xF ];
+      u>>=  16;
+   } while (u > 0);
+   return(c);
 } // bitCountZ
 
 I32 bitNumHiZ (size_t u)
@@ -221,7 +236,7 @@ static const I8 h4b8[]=
    4, 4, 4, 4, // 1000 1001 1010 1011
    4, 4, 4, 4  // 1100 1101 1110 1111
 };
-	I32	h=-1;
+   I32   h=-1;
 
    if (0 != u)
    {
@@ -231,8 +246,8 @@ static const I8 h4b8[]=
       if (0 != (t= (u >> 8))) { h+= 8; u= t; }
       if (0 != (t= (u >> 4))) { h+= 4; u= t; }
       h+= h4b8[u];
-	}
-	return(h);
+   }
+   return(h);
 } // bitNumHiZ
 
 U32 bitsReqI32 (I32 i)

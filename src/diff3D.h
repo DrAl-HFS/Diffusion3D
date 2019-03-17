@@ -1,6 +1,6 @@
 // diff3D.h - 3D Diffusion under OpenACC
 // https://github.com/DrAl-HFS/Diffusion3D.git
-// (c) Diffusion3D Project Contributors Jan 2019
+// (c) Diffusion3D Project Contributors Jan-March 2019
 
 #ifndef DIFF_3D_H
 #define DIFF_3D_H
@@ -54,6 +54,16 @@ typedef struct
 /***/
 
 // Isotropic 3D diffusion functions:
+
+// single shot, requires buffers setup beforehand
+void procD3S6M8
+(
+   DiffScalar * restrict pR,  // Result field(s)
+   const DiffScalar  * const pS, // Source field(s)
+   const DiffOrg     * const pO, // description
+   const D3S6IsoWeights * const pW,
+   const D3S6MapElem    * const pM
+);
 
 // 6-point/2-weight stencil "3D Von-Neumann neighbourhood"
 // NB 8bit map entries & no weight padding
