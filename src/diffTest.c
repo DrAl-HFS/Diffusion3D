@@ -13,15 +13,106 @@ typedef struct
    MemBuff        ws;
 } DiffTestContext;
 
+//
+typedef struct
+{
+   U16 def[5];
+   U8  nDef, elemBytes;
+} DataOrg;
+
+typedef struct
+{
+   const char *pathName;
+   const char *name;
+   size_t      bytes;
+} FileInfo;
+
+typedef struct
+{
+   FileInfo file;
+   DataOrg  org;
+   int       maxIter;
+} ArgInfo;
 
 static DiffTestContext gCtx={0,};
 
 static MapSiteInfo gMSI;
 
+static ArgInfo gAI={0,};
+
 
 /***/
 
-Bool32 init (DiffTestContext *pC, U32 def)
+U8 scanDef (U16 d[3], const char s[])
+{
+   int i= 0;
+   U8 n=0;
+   while (s[i] && !isdigit(s[i])) { ++i; }
+
+   n+= sscanf(s+i,"%u",d+n);
+   d[1]= d[2]= 0;
+   return(n);
+} // scanNameDef
+
+Bool32 getOrg (DataOrg *pDO, const FileInfo *pFI, U8 verbose)
+{
+   pDO->nDef= scanDef(pDO->def, pFI->name);
+   if (pDO->nDef > 0)
+   {
+      const U16 l= pDO->def[pDO->nDef-1];
+      size_t x= pDO->def[0];
+      for (U8 i=1; i < pDO->nDef; i++) { x*= pDO->def[i]; }
+
+      while ((x < pFI->bytes) && (pDO->nDef < 3))
+      {
+         size_t d= pFI->bytes / x;
+         //printf("%zu / %zu = %zu\n", pFI->bytes, x, d);
+         if (d >= l)
+         {
+            pDO->def[ pDO->nDef++ ]= l;
+            x*= l;
+         }
+      }
+      // Pad to 3D
+      while (pDO->nDef < 3) { pDO->def[ pDO->nDef++ ]= 1; }
+      pDO->elemBytes= pFI->bytes / x;
+      if (verbose)
+      {
+         printf("getOrg(%s) - [%u]=", pFI->name, pDO->nDef);
+         for (U8 i=0; i < pDO->nDef; i++) { printf("%u ", pDO->def[i]); }
+         printf("\n * %u = %zu (%zu)\n", pDO->elemBytes, x, pFI->bytes);
+      }
+      return(x <= pFI->bytes);
+   }
+   return(FALSE);
+} // getOrg
+
+void scanArgs (ArgInfo *pAI, char *v[], const int n, U8 verbose)
+{
+   for (int i=0; i<n; i++)
+   {
+      char *pC= v[i];
+      int a=-1;
+      if ( isdigit(pC[0]) )
+      {
+         sscanf(pC,"%d",&a);
+         if (a >= 0) { pAI->maxIter= a; }
+      }
+      else
+      {
+         size_t bytes= fileSize(pC);
+         if (bytes > 0)
+         {
+            pAI->file.bytes= bytes;
+            pAI->file.pathName= pC;
+            pAI->file.name=     stripPath(pC);
+            getOrg(&(pAI->org), &(pAI->file), verbose);
+         }
+      }
+   }
+} // scanArgs
+
+Bool32 init (DiffTestContext *pC, U16 def[3])
 {
    initHack();
    if (initDiffOrg(&(pC->org), def, 1))
@@ -153,8 +244,8 @@ U32 testAn (Test1Res *pR, const TestParam *pP)
       printf("m=(%s)\n", txt);
       n= strFmtNSMV(txt, m, "%.4G,", a.var, 3);
       printf("v=(%s)\n", txt);
-//m=(%.4G,%.4G,%.4G) v=(%.4G,%.4G,%.4G) 
-//a.m[0], a.m[1], a.m[2], a.v[0], a.v[1], a.v[2], 
+//m=(%.4G,%.4G,%.4G) v=(%.4G,%.4G,%.4G)
+//a.m[0], a.m[1], a.m[2], a.v[0], a.v[1], a.v[2],
       printf("analyseField() - mm=%G,%G sum=%G isoVar=%G Dt=%G\n", a.mm.vMin, a.mm.vMax, a.sum, isovar, Dt);
    }
    return(iT);
@@ -254,29 +345,26 @@ int main (int argc, char *argv[])
    MapDesc md={0};
    int r= 0;
 
-   utilTest();
-   if (init(&gCtx,1<<8))
+   scanArgs(&gAI, argv+1, argc-1, TRUE);
+   //utilTest();
+   if (init(&gCtx, gAI.org.def))
    {
       float f=-1;
       U32 mapID= 1;
       gMSI.v= 1.0;
 
-      if (argc > 1)
+      if (gAI.file.bytes > 0)
       {
-         const char *fileName= argv[1];
-         if (fileSize(fileName) > 0)
-         {
-            RawTransMethodDesc rm={0};
-            
-            getProfileRM(&rm, TFR_ID_PDFPERM, MAP_ID_B1NH6, 0xFF); // D3UF_PERM_SAVE|D3UF_CLUSTER_SAVE|D3UF_CLUSTER_TEST
+         RawTransMethodDesc rm={0};
 
-            f= mapFromU8Raw(gCtx.pM, &md, &(gCtx.ws), fileName, &rm, &(gCtx.org));
-            if (f > 0) { gMSI.c= md.site; }
-            //printf("site= (%d,%d,%d)\n", gMSI.c.x, gMSI.c.y, gMSI.c.z);
-            mapID= -1;
-         }
+         getProfileRM(&rm, TFR_ID_PDFPERM, MAP_ID_B1NH6, 0xFF); // D3UF_PERM_SAVE|D3UF_CLUSTER_SAVE|D3UF_CLUSTER_TEST
+
+         f= mapFromU8Raw(gCtx.pM, &md, &(gCtx.ws), gAI.file.pathName, &rm, &(gCtx.org));
+         if (f > 0) { gMSI.c= md.site; }
+         //printf("site= (%d,%d,%d)\n", gMSI.c.x, gMSI.c.y, gMSI.c.z);
+         mapID= -1;
       }
-      if (f <= 0)
+      if (mapID <= 1)
       {
          f= setDefaultMap(gCtx.pM, &md, &(gCtx.org.def), mapID);
          scaleV3I(&(gMSI.c), &(gCtx.org.def), 0.5);
@@ -288,7 +376,7 @@ int main (int argc, char *argv[])
       //initW(gCtx.wPhase[0].w, 0.5, 6, 0); // ***M8***
       //iT= diffProcIsoD3S6M(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), (D3S6IsoWeights*)(gCtx.wPhase), gCtx.pM, 100);
 
-      if ((0 == mapID) && (4 == md.mapBytes)) //(f >= 0.99) // modeFlags & FLAG_NHTEST ???
+      if ((0 == mapID) && (4 == md.mapElemBytes))
       {
          static const U8 nHoods[]={6,14,18,26};
          compareAnNHI(nHoods, sizeof(nHoods), 20, 100);
@@ -312,14 +400,15 @@ int main (int argc, char *argv[])
          if (testV > 0) { resetFieldVCM(gCtx.pSR[0], &(gCtx.org), gCtx.pM, &(gDefObsKV.k), gDefObsKV.v2[1]); }
 
          initIsoW(gCtx.wPhase[0].w, 0.5, param.nHood, 0);
-         if (1 == md.mapBytes) // && (6 == md.nHood ))
+         switch (md.mapElemBytes) // && (6 == md.nHood ))
          {
-            D3S6IsoWeights *pW= (D3S6IsoWeights*)(gCtx.wPhase+0);
-            iT= diffProcIsoD3S6M(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), pW, gCtx.pM, param.iter);
-         }
-         else if (4 == md.mapBytes)
-         {
-            iT= diffProcIsoD3SxM(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), gCtx.wPhase, gCtx.pM, param.iter, param.nHood);
+            case 1:
+            {  D3S6IsoWeights *pW= (D3S6IsoWeights*)(gCtx.wPhase+0);
+               iT= diffProcIsoD3S6M(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), pW, gCtx.pM, param.iter); }
+               break;
+            case 4:
+               iT= diffProcIsoD3SxM(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), gCtx.wPhase, gCtx.pM, param.iter, param.nHood);
+               break;
          }
          iN= iT & 1;
 

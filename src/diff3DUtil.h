@@ -49,7 +49,7 @@ typedef struct
 
 /***/
 
-extern size_t initDiffOrg (DiffOrg *pO, U32 def, U32 nP);
+extern size_t initDiffOrg (DiffOrg *pO, const U16 def[3], U32 nP);
 
 extern DiffScalar initIsoW (DiffScalar w[], DiffScalar r, U32 nHood, U32 f);
 

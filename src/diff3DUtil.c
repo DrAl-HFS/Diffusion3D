@@ -250,18 +250,20 @@ float processMap (void * pM, const U8 nMapBytes, const U8 nNHBits, const U8 * pP
 } // processMap
 
 
-size_t initDiffOrg (DiffOrg *pO, U32 def, U32 nP)
+size_t initDiffOrg (DiffOrg *pO, const U16 def[3], U32 nP)
 {
    size_t n= 1;
 
    //def= MAX(32,def);
    //nP= MAX(1,nP);
-   pO->def.x= pO->def.y= pO->def.z= def; 
+   pO->def.x= def[0];
+   pO->def.y= def[1];
+   pO->def.z= def[2];
    pO->nPhase= nP;
    for (int i=0; i<DIFF_DIM; i++)
    {
       pO->stride[i]= n; // planar
-      n*= def; 
+      n*= def[i]; 
    }
    pO->phaseStride= n; // planar
 
