@@ -357,11 +357,11 @@ void procD3S6M8
    DiffScalar * restrict pR,  // Result field(s)
    const DiffScalar  * const pS, // Source field(s)
    const DiffOrg     * const pO, // description
-   const D3S6IsoWeights * const pW,
-   const D3S6MapElem    * const pM
+   const D3S6IsoWeights  * const pW,
+   const D3S6MapElem * const pM8
 )
 {
-   #pragma acc data present( pR[:pO->n1B], pS[:pO->n1B], pO[:1], pW[:pO->nPhase], pM[:pO->n1F] )
+   #pragma acc data present( pR[:pO->n1B], pS[:pO->n1B], pO[:1], pW[:pO->nPhase], pM8[:pO->n1F] )
    {
       #pragma acc parallel loop
       for (Index z= 0; z < pO->def.z; z++)
@@ -371,7 +371,7 @@ void procD3S6M8
             #pragma acc loop vector
             for (Index x= 0; x < pO->def.x; x++)
             {
-               const U32 m= pM[x + pO->def.x * (y + (size_t) pO->def.y * z) ];
+               const U32 m= pM8[x + pO->def.x * (y + (size_t) pO->def.y * z) ];
                if (0 != m)
                {
                   const size_t i= x * pO->stride[0] + y * pO->stride[1] + z * pO->stride[2];
@@ -380,8 +380,8 @@ void procD3S6M8
                   setS6M(s6m, pO->step, m);
                   for (int phase= 0; phase < pO->nPhase; phase++)
                   {
-                     size_t j= i + phase * pO->phaseStride;
-                     pR[j]= diffuseD3S6M(pS+j, s6m, pW[phase].w);
+                      size_t j= i + phase * pO->phaseStride;
+                      pR[j]= diffuseD3S6M(pS+j, s6m, pW[phase].w);
                   }
                }
             }
@@ -393,18 +393,18 @@ void procD3S6M8
 
 /***/
 
-U32 diffProcIsoD3S6M
+U32 diffProcIsoD3S6M8
 (
    DiffScalar * restrict pR,  // Result field(s)
    DiffScalar * restrict pS, // Source field(s)
-   const DiffOrg        * pO, // descriptor
-   const D3S6IsoWeights * pW,
-   const D3S6MapElem    * pM,
+   const DiffOrg      * pO, // descriptor
+   const D3S6IsoWeights  * pW,
+   const D3S6MapElem * pM8,
    const U32 nI
 )
 {
    U32 i;
-   #pragma acc data present_or_copyin( pO[:1], pW[:pO->nPhase], pM[:pO->n1F] )
+   #pragma acc data present_or_copyin( pO[:1], pW[:pO->nPhase], pM8[:pO->n1F] )
    {
       if (0 == (nI & 1))
       {
@@ -412,8 +412,8 @@ U32 diffProcIsoD3S6M
          {
             for (i= 0; i < nI; i+=2 )
             {
-               procD3S6M8(pR,pS,pO,pW,pM);
-               procD3S6M8(pS,pR,pO,pW,pM);
+               procD3S6M8(pR,pS,pO,pW,pM8);
+               procD3S6M8(pS,pR,pO,pW,pM8);
             }
          }
       }
@@ -421,17 +421,17 @@ U32 diffProcIsoD3S6M
       {
          #pragma acc data present_or_create( pR[:pO->n1B] ) copyin( pS[:pO->n1B] ) copyout( pR[:pO->n1B] )
          {
-            procD3S6M8(pR,pS,pO,pW,pM);
+            procD3S6M8(pR,pS,pO,pW,pM8);
             for (i= 1; i < nI; i+= 2 )
             {
-               procD3S6M8(pS,pR,pO,pW,pM);
-               procD3S6M8(pR,pS,pO,pW,pM);
+               procD3S6M8(pS,pR,pO,pW,pM8);
+               procD3S6M8(pR,pS,pO,pW,pM8);
             }
          }
       }
    }
    return(i);
-} // diffProcIsoD3S6M
+} // diffProcIsoD3S6M8
 
 U32 diffProcIsoD3SxM
 (

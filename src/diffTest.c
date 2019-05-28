@@ -8,8 +8,8 @@ typedef struct
 {
    DiffOrg        org;
    DiffScalar     *pSR[2];
-   D3IsoWeights   wPhase[1];
-   void           *pM;
+   D3IsoWeights   wPhase[2];
+   void           *pM, *pMC;
    MemBuff        ws;
 } DiffTestContext;
 
@@ -123,6 +123,7 @@ Bool32 init (DiffTestContext *pC, U16 def[3])
       U32 nB= 0;
 
       pC->pM= malloc(b1M);
+      pC->pMC= (D3S6MapElem*)(pC->pM) + pC->org.n1F; // NB only valid for M8
       pC->ws.bytes=  b1W; // 1<<28; ???
       pC->ws.p=  malloc(pC->ws.bytes);
       for (int i= 0; i<2; i++)
@@ -333,12 +334,79 @@ void compareAnNHI (const U8 nHoods[], const U8 nNH, const U32 step, const U32 ma
    }
 } // compareAnNHI
 
+size_t map8DupCons (D3S6MapElem *pR, const D3S6MapElem *pM, const MapDesc * pMD, const DiffOrg *pO, const DiffScalar *pS, const DiffScalar t)
+{
+   size_t l, m= 0, n= 0;
+   for (size_t i=0; i<pO->n1F; i++)
+   {
+      if (pS[i] > t)
+      {
+         pR[i]= pM[i]; 
+         ++n;
+      } else { pR[i]= 0; ++m; }
+   }
+   l= constrainMap(pR, pM, pMD, pO);
+   if (l != n) printf("ERROR: map8DupCons() - %zu %zu\n", l, n);
+   return(n);
+} // map8DupCons
+
 void scaleV3I (V3I *pR, const V3I *pS, const float s)
 {
    pR->x= pS->x * s;
    pR->y= pS->y * s;
    pR->z= pS->z * s;
 } // scaleV3I
+
+U32 testMap (RedRes *pRR, const TestParam * pTP, const MapDesc * pMD, U32 iT, const char *baseName)
+{
+   RedRes rrN;
+   U32    iN=0, testV=0, dumpR=0;
+
+   iN= iT & 1;
+   initFieldVCM(gCtx.pSR[iN], &(gCtx.org), NULL, NULL, &gMSI);
+   if (dumpR > 0) { dumpSMR(gCtx.pSR[iN], gCtx.pM, &(gMSI.c), dumpR); }
+
+   reduct3_2_0(&rrN, gCtx.ws.p, gCtx.pSR[iN], &(gCtx.org), 0);
+   printf("Initial SMM: %G, %G, %G\n", rrN.sum, rrN.mm.vMin, rrN.mm.vMax );
+   // Set NAN / -1 for test
+   if (testV > 0) { resetFieldVCM(gCtx.pSR[iN], &(gCtx.org), gCtx.pM, &(gDefObsKV.k), gDefObsKV.v2[1]); }
+
+   initIsoW(gCtx.wPhase[0].w, 0.5, pTP->nHood, 0);
+   switch (pMD->mapElemBytes)
+   {
+      case 1:
+         // if (6 != pMD->nHood ) ERROR(...);
+         iT+= diffProcIsoD3S6M8(gCtx.pSR[iN^1], gCtx.pSR[iN], &(gCtx.org), (D3S6IsoWeights*)gCtx.wPhase, gCtx.pM, pTP->iter);
+         break;
+      case 4:
+         iT+= diffProcIsoD3SxM(gCtx.pSR[iN^1], gCtx.pSR[iN], &(gCtx.org), gCtx.wPhase, gCtx.pM, pTP->iter, pTP->nHood);
+         break;
+   }
+   iN= iT & 1;
+
+   // Clear NAN / -1 for tally
+   if (testV > 0) { resetFieldVCM(gCtx.pSR[iN], &(gCtx.org), gCtx.pM, NULL, 0); }
+   if (dumpR > 0) { dumpSMR(gCtx.pSR[iN], NULL, &(gMSI.c), dumpR); }
+
+   const char mode= 0;
+   reduct3_2_0(&rrN, gCtx.ws.p, gCtx.pSR[iN], &(gCtx.org), mode);
+   printf("N%u I%u SMM: %G, %G, %G\n", pTP->nHood, iT, rrN.sum, rrN.mm.vMin, rrN.mm.vMax );
+   if (pRR) { *pRR= rrN; }
+
+   if (baseName)
+   { // output
+      MMSMVal mm, *pMM=NULL;
+      if ('L' == mode)
+      {
+         mm.vMax= log(rrN.mm.vMax);
+         if (rrN.mm.vMin > 0) { mm.vMin= log(rrN.mm.vMin); } else { mm.vMin= log(gEpsilon); }
+         pMM= &mm;
+      } else { pMM= &(rrN.mm); }
+
+      save("rgb", baseName, gCtx.ws.p, pTP->nHood, pTP->iter, -1, pMM);
+   }
+   return(iT);
+} // testMap
 
 int main (int argc, char *argv[])
 {
@@ -384,52 +452,41 @@ int main (int argc, char *argv[])
       else
       {
          TestParam  param;
-         RedRes     rrN;
-         U32        iT=0, iN=0, testV=0, dumpR=0;
+         U32        iT=0, iN=0;
+         RedRes    rr;
 
          //iT= 0; iN= iT & 1;
          param.nHood=md.nHood;
          param.iter= 50; if (mapID > 0) { param.iter= 200; }
          param.rD=   0.5;
-         initFieldVCM(gCtx.pSR[0], &(gCtx.org), NULL, NULL, &gMSI);
-         if (dumpR > 0) { dumpSMR(gCtx.pSR[0], gCtx.pM, &(gMSI.c), dumpR); }
-
-         reduct3_2_0(&rrN, gCtx.ws.p, gCtx.pSR[0], &(gCtx.org), 0);
-         printf("Initial SMM: %G, %G, %G\n", rrN.sum, rrN.mm.vMin, rrN.mm.vMax );
-         // Set NAN / -1 for test
-         if (testV > 0) { resetFieldVCM(gCtx.pSR[0], &(gCtx.org), gCtx.pM, &(gDefObsKV.k), gDefObsKV.v2[1]); }
-
-         initIsoW(gCtx.wPhase[0].w, 0.5, param.nHood, 0);
-         switch (md.mapElemBytes) // && (6 == md.nHood ))
-         {
-            case 1:
-            {  D3S6IsoWeights *pW= (D3S6IsoWeights*)(gCtx.wPhase+0);
-               iT= diffProcIsoD3S6M(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), pW, gCtx.pM, param.iter); }
-               break;
-            case 4:
-               iT= diffProcIsoD3SxM(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), gCtx.wPhase, gCtx.pM, param.iter, param.nHood);
-               break;
-         }
+         iT= testMap(&rr, &param, &md, iT, "NRED.rgb");
          iN= iT & 1;
+         printf("rr: s=%G um=%G mm=%G,%G\n", rr.sum, rr.uMin, rr.mm.vMin, rr.mm.vMax);
 
-         // Clear NAN / -1 for tally
-         if (testV > 0) { resetFieldVCM(gCtx.pSR[iN], &(gCtx.org), gCtx.pM, NULL, 0); }
-         if (dumpR > 0) { dumpSMR(gCtx.pSR[iN], NULL, &(gMSI.c), dumpR); }
-
-         const char mode= 0, *name="NRED.rgb";
-         reduct3_2_0(&rrN, gCtx.ws.p, gCtx.pSR[iN], &(gCtx.org), mode);
-         printf("N%u I%u SMM: %G, %G, %G\n", param.nHood, iT, rrN.sum, rrN.mm.vMin, rrN.mm.vMax );
-
-         // output
-         MMSMVal mm, *pMM=NULL;
-         if ('L' == mode)
+         // dependant diffusion test
+         if (1 == md.mapElemBytes)
          {
-            mm.vMax= log(rrN.mm.vMax);
-            if (rrN.mm.vMin > 0) { mm.vMin= log(rrN.mm.vMin); } else { mm.vMin= log(gEpsilon); }
-            pMM= &mm;
-         } else { pMM= &(rrN.mm); }
+            DiffScalar *pS, t= 1E-15; //lerpF64(rr.uMin, rr.mm.vMax, 1E-15);
+            size_t n= map8DupCons(gCtx.pMC, gCtx.pM, &md, &(gCtx.org), gCtx.pSR[iN], t);
+            printf("map8DupCons(... %G) -> %zu\n", t, n);
 
-         save("rgb", name, gCtx.ws.p, param.nHood, param.iter, -1, pMM);
+            n= gCtx.org.n1F * sizeof(*pS);
+            pS= malloc(n);
+            if (pS)
+            {
+               memcpy(pS, gCtx.pSR[iN], n);
+               SWAP(void*, gCtx.pMC, gCtx.pM);
+
+               param.iter*= 2;
+               iT= testMap(&rr, &param, &md, 0, "NDEP.rgb");
+               iN= iT & 1;
+               printf("rr: s=%G um=%G mm=%G,%G\n", rr.sum, rr.uMin, rr.mm.vMin, rr.mm.vMax);
+
+               // swap back for cleanup
+               SWAP(void*, gCtx.pMC, gCtx.pM);
+               free(pS);
+            }
+         }
       }
    }
    release(&gCtx);

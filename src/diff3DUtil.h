@@ -60,6 +60,9 @@ extern Bool32 getProfileRM (RawTransMethodDesc *pRM, const U8 idT, const U8 idM,
 extern float mapFromU8Raw (void *pM, MapDesc *pMD, const MemBuff *pWS, const char *path, 
                               const RawTransMethodDesc *pRM, const DiffOrg *pO);
 
+// Hacky constraint for M8 only
+extern size_t constrainMap (void * pM, const void * pW, const MapDesc * pMD, const DiffOrg *pO);
+
 #ifdef __cplusplus
 } // extern "C"
 #endif

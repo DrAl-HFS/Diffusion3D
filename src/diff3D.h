@@ -61,19 +61,19 @@ void procD3S6M8
    DiffScalar * restrict pR,  // Result field(s)
    const DiffScalar  * const pS, // Source field(s)
    const DiffOrg     * const pO, // description
-   const D3S6IsoWeights * const pW,
-   const D3S6MapElem    * const pM
+   const D3S6IsoWeights  * const pW,
+   const D3S6MapElem * const pM8
 );
 
 // 6-point/2-weight stencil "3D Von-Neumann neighbourhood"
-// NB 8bit map entries & no weight padding
-extern U32 diffProcIsoD3S6M 
+// NB 8bit map entries and 2 weights
+extern U32 diffProcIsoD3S6M8
 (
    DiffScalar * restrict pR,  // Result field(s)
    DiffScalar * restrict pS,  // Source field(s)
-   const DiffOrg         * pO, // descriptor
-   const D3S6IsoWeights * pW, // [pO->nPhase]
-   const D3S6MapElem    * pM, // map (corresponding to scalar fields) describing structure
+   const DiffOrg     * pO, // descriptor
+   const D3S6IsoWeights  * pW, // [pO->nPhase]
+   const D3S6MapElem * pM8, // map (corresponding to scalar fields) describing structure
    const U32  nI   // iterations
 );
 

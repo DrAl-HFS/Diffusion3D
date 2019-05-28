@@ -151,14 +151,14 @@ static void sealBoundaryMapNH (void *pM, const U8 nBV, const MapOrg *pO, const D
 } // sealBoundaryMapNH
 
 
-static size_t constrainNH (D3MapElem * const pM, const U8 nNH, const U8 * const pU8, const size_t n, 
+static size_t consNH32 (D3MapElem * const pM, const U8 nNH, const U8 * const pPermU8, const size_t n, 
                      const Stride step[], const D3MapElem revM[])
 {
    const D3MapElem nhM= (1 << nNH) - 1;
    size_t w=0;
    for (size_t i= 0; i<n; i++)
    {
-      if (0 == pU8[i])
+      if (0 == pPermU8[i])
       {
          const D3MapElem m= pM[i];
          w+= (0 == (m & nhM));
@@ -170,16 +170,16 @@ static size_t constrainNH (D3MapElem * const pM, const U8 nNH, const U8 * const 
       }
    }
    return(w);
-} // constrainNH
+} // consNH32
 
-static size_t constrainNHB (void * const pM, const U8 nMB, const U8 nNH, const U8 * const pU8, const size_t n, 
+static size_t consNHB (void * const pM, const U8 nMB, const U8 nNH, const U8 * const pPermU8, const size_t n, 
                      const Stride step[], const D3MapElem revM[])
 {
    const D3MapElem nhM= (1 << nNH) - 1;
    size_t w=0;
    for (size_t i= 0; i<n; i++)
    {
-      if (0 == pU8[i])
+      if (0 == pPermU8[i])
       {
          const size_t iB= i * nMB;
          const D3MapElem m= readBytesLE(pM, iB, nMB);
@@ -192,7 +192,7 @@ static size_t constrainNHB (void * const pM, const U8 nMB, const U8 nNH, const U
       }
    }
    return(w);
-} // constrainNHB
+} // consNHB
 
 static void genRevM (D3MapElem revM[], char n)
 {
@@ -204,7 +204,7 @@ static void genRevM (D3MapElem revM[], char n)
    }
 } // genRevM
 
-static void constrainMapNH (void * const pM, const U8 nMB, const U8 nNH, const U8 * pU8, const MapOrg *pO)
+static void consMapNHX (void * const pM, const U8 nMB, const U8 nNH, const U8 * pPermU8, const MapOrg * pO)
 {
    D3MapElem revM[26];
 
@@ -213,11 +213,11 @@ static void constrainMapNH (void * const pM, const U8 nMB, const U8 nNH, const U
    {
       size_t w=0;
       genRevM(revM,nNH);
-      if (4 == nMB) { w= constrainNH(pM, nNH, pU8, pO->n, pO->step, revM); }
-      else { w= constrainNHB(pM, nMB, nNH, pU8, pO->n, pO->step, revM); }
+      if (4 == nMB) { w= consNH32(pM, nNH, pPermU8, pO->n, pO->step, revM); }
+      else { w= consNHB(pM, nMB, nNH, pPermU8, pO->n, pO->step, revM); }
       if (w > 0) { printf("WARNING: constrainMapNH() - %zu degenerate map entries\n", w);}
    }
-} // constrainMapNH
+} // consMapNHX
 
 //#include "diffTestUtil.h"
 
@@ -243,12 +243,11 @@ float processMap (void * pM, const U8 nMapBytes, const U8 nNHBits, const U8 * pP
    //if ((v > 0) && (4 == nMapBytes)) { dumpDMMBC(pPerm, pM, pO->n, (1<<nNHBits)-1); }
 
    printf("constrain...\n");
-   constrainMapNH(pM, nMapBytes, nNHBits, pPerm, pO);
+   consMapNHX(pM, nMapBytes, nNHBits, pPerm, pO);
    //if ((v > 0) && (4 == nMapBytes)) { dumpDMMBC(pPerm, pM, pO->n, (1<<nNHBits)-1); }
 
    return((float)(pO->n - pd[0]) / pO->n );
 } // processMap
-
 
 size_t initDiffOrg (DiffOrg *pO, const U16 def[3], U32 nP)
 {
@@ -311,7 +310,6 @@ DiffScalar initIsoW (DiffScalar w[], DiffScalar r, U32 nHood, U32 f)
    if (f & 1) { printf("initIsoW() - w[]= %G, %G, %G, %G\n", w[0], w[1], w[2], w[3]); }
    return(t);
 } // initIsoW
-
 
 float setDefaultMap (D3MapElem *pM, MapDesc *pMD, const V3I *pD, const U32 id)
 {
@@ -564,8 +562,39 @@ float mapFromU8Raw (void *pM, MapDesc *pMD, const MemBuff *pWS, const char *path
          {
             findNear(&(pMD->site), &c, pPerm, &org);
          }
-
       }
    }
    return(r);
 } // mapFromU8Raw
+
+static size_t consU8 (U8 * const pM, const U8 nNH, const U8 * const pRefM, const size_t n, 
+                     const Stride step[], const D3MapElem revM[])
+{
+   size_t w=0;
+   for (size_t i= 0; i<n; i++)
+   {
+      if ((0 == pM[i]) && (0 != pRefM[i]))
+      {
+         const D3MapElem m= pRefM[i];
+         for (U8 j=0; j < nNH; j++)
+         {  // adjust all available neighbours, preventing flux into site
+            if (m & (1<<j)) { pM[ i + step[j] ] &= revM[j]; }
+         }
+         ++w;
+      }
+   }
+   return(w);
+} // consNHB
+
+size_t constrainMap (void * pM, const void * pW, const MapDesc * pMD, const DiffOrg *pO)
+{
+   D3MapElem revM[26];
+   if (1 == pMD->mapElemBytes)
+   {
+      MapOrg mo;
+      initMapOrg(&mo, &(pO->def));
+      genRevM(revM, pMD->nHood);
+      return consU8(pM, pMD->nHood, pW, mo.n, mo.step, revM);
+   }
+   return(0);
+} // constrainMap

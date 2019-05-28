@@ -336,7 +336,7 @@ DiffScalar searchMin1
 // Full 1D -> 0D reduction
 static void reduct1F0 (RedRes * pR, const DiffScalar * const pS, const size_t n)
 {
-   SMVal sum, vMin, vMax; // =0, vMin=1E34, vMax=-1E34;
+   SMVal sum, uMin, vMin, vMax;
 
    sum= vMin= vMax= *pS;
    #pragma acc data present( pS[:n] ) copy( sum, vMin, vMax ) // n ???
@@ -348,10 +348,17 @@ static void reduct1F0 (RedRes * pR, const DiffScalar * const pS, const size_t n)
       #pragma acc parallel reduction(max: vMax )
       for (size_t i=1; i < n; i++) { vMax= fmax(vMax, pS[i]); }
    }
+   uMin= -1;
+   if ((vMax > 0) && (uMin <= 0))
+   {
+      uMin= vMax;
+      for (size_t i=1; i < n; i++) { if (pS[i] > 0) { uMin= fmin(uMin, pS[i]); } }
+   }
    pR->sum= sum;
+   pR->uMin= uMin;
    pR->mm.vMin= vMin;
    pR->mm.vMax= vMax;
-} // reduct0F1
+} // reduct1F0
 
 // Partial 3D -> 2D reduction
 static void reduct3P2 (DiffScalar * restrict pTR, const DiffScalar * const pS, const DiffOrg *pO)

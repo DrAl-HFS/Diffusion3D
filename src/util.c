@@ -279,6 +279,8 @@ extern SMVal meanNSMV (const SMVal v[], const size_t n)
    return(0);
 } // meanNSMV
 
+F64 lcombF64 (const F64 x0, const F64 x1, const F64 r0, const F64 r1) { return(x0 * r0 + x1 * r1); }
+F64 lerpF64 (const F64 x0, const F64 x1, const F64 r) { return(x0 + r * (x1 - x0)); } // lcombF64(x0, x1, 1.0-r, r); }
 
 U8 bitsValZ (const size_t v)
 {
