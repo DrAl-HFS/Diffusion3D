@@ -1,6 +1,6 @@
 // diff3DUtil.h - 3D Diffusion under OpenACC
 // https://github.com/DrAl-HFS/Diffusion3D.git
-// (c) Diffusion3D Project Contributors Jan-March 2019
+// (c) Diffusion3D Project Contributors Jan-June 2019
 
 #ifndef DIFF_3D_UTIL_H
 #define DIFF_3D_UTIL_H

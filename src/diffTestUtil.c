@@ -1,6 +1,6 @@
 // diffTestUtil.c - 3D Diffusion under OpenACC
 // https://github.com/DrAl-HFS/Diffusion3D.git
-// (c) Diffusion3D Project Contributors Jan 2019
+// (c) Diffusion3D Project Contributors Jan-June 2019
 
 #include "diffTestUtil.h"
 //#include <math.h>

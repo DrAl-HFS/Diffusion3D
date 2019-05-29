@@ -1,6 +1,6 @@
-// util.c - 3D Diffusion under OpenACC
+// util.c - miscelleaneous utility code used within 3D Diffusion under OpenACC
 // https://github.com/DrAl-HFS/Diffusion3D.git
-// (c) Diffusion3D Project Contributors Jan-Mar 2019
+// (c) Diffusion3D Project Contributors Jan-June 2019
 
 #include "util.h"
 

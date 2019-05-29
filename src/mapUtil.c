@@ -1,4 +1,6 @@
-// mapUtil.c - utilities for map representation
+// mapUtil.c - utilities for map representation used within 3D Diffusion under OpenACC
+// https://github.com/DrAl-HFS/Diffusion3D.git
+// (c) Diffusion3D Project Contributors Jan-June 2019
 
 #include "mapUtil.h"
 
