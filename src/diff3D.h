@@ -55,7 +55,9 @@ typedef struct
 
 // Isotropic 3D diffusion functions:
 
-// single shot, requires buffers setup beforehand
+#ifdef LFD3D
+// Hacky exposure of lower level function for Fungi project integration & test
+// (single shot, requires OpenACC buffer management beforehand i.e. no copy generated within)
 void procD3S6M8
 (
    DiffScalar * restrict pR,  // Result field(s)
@@ -64,9 +66,10 @@ void procD3S6M8
    const D3S6IsoWeights  * const pW,
    const D3S6MapElem * const pM8
 );
+#endif // LFD3D
 
 // 6-point/2-weight stencil "3D Von-Neumann neighbourhood"
-// NB 8bit map entries and 2 weights
+// NB 8bit map entries and only 2 weights
 extern U32 diffProcIsoD3S6M8
 (
    DiffScalar * restrict pR,  // Result field(s)
