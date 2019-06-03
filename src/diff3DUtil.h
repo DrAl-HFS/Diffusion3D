@@ -15,7 +15,7 @@ extern "C" {
 #define D3UF_PERM_SAVE     (1<<7)
 #define D3UF_CLUSTER_SAVE  (1<<6)
 #define D3UF_CLUSTER_TEST  (1<<5)
-#define D3U_  ()
+#define D3UF_ALL  (-1)
 
 #define MAP_ID_B1NH6    (0)
 #define MAP_ID_B4NH6    (1)
@@ -46,6 +46,11 @@ typedef struct
    V3I site;
 } MapDesc;
 
+typedef struct
+{
+   DiffScalar t;
+} DupConsParam;
+
 
 /***/
 
@@ -61,7 +66,16 @@ extern float mapFromU8Raw (void *pM, MapDesc *pMD, const MemBuff *pWS, const cha
                               const RawTransMethodDesc *pRM, const DiffOrg *pO);
 
 // Hacky constraint for M8 only
-extern size_t constrainMap (void * pM, const void * pW, const MapDesc * pMD, const DiffOrg *pO);
+//extern size_t constrainMap (void * pM, const void * pW, const MapDesc * pMD, const DiffOrg *pO);
+extern size_t map8DupCons
+(
+   D3S6MapElem    * pR,     // result constrained map
+   const D3S6MapElem * pM, // reference map
+   const MapDesc  * pMD,    // map props
+   const DiffOrg  * pO,     // scalar props
+   const DiffScalar * pS,  // scalar field(s)
+   const DupConsParam * pP      // threshold >= 
+);
 
 #ifdef __cplusplus
 } // extern "C"

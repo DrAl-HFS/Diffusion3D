@@ -334,21 +334,6 @@ void compareAnNHI (const U8 nHoods[], const U8 nNH, const U32 step, const U32 ma
    }
 } // compareAnNHI
 
-size_t map8DupCons (D3S6MapElem *pR, const D3S6MapElem *pM, const MapDesc * pMD, const DiffOrg *pO, const DiffScalar *pS, const DiffScalar t)
-{
-   size_t l, m= 0, n= 0;
-   for (size_t i=0; i<pO->n1F; i++)
-   {
-      if (pS[i] > t)
-      {
-         pR[i]= pM[i]; 
-         ++n;
-      } else { pR[i]= 0; ++m; }
-   }
-   l= constrainMap(pR, pM, pMD, pO);
-   if (l != n) printf("ERROR: map8DupCons() - %zu %zu\n", l, n);
-   return(n);
-} // map8DupCons
 
 void scaleV3I (V3I *pR, const V3I *pS, const float s)
 {
@@ -425,8 +410,7 @@ int main (int argc, char *argv[])
       {
          RawTransMethodDesc rm={0};
 
-         getProfileRM(&rm, TFR_ID_PDFPERM, MAP_ID_B1NH6, 0xFF); // D3UF_PERM_SAVE|D3UF_CLUSTER_SAVE|D3UF_CLUSTER_TEST
-
+         getProfileRM(&rm, TFR_ID_PDFPERM, MAP_ID_B1NH6, D3UF_NONE); // D3UF_PERM_SAVE|D3UF_CLUSTER_SAVE|D3UF_CLUSTER_TEST
          f= mapFromU8Raw(gCtx.pM, &md, &(gCtx.ws), gAI.file.pathName, &rm, &(gCtx.org));
          if (f > 0) { gMSI.c= md.site; }
          //printf("site= (%d,%d,%d)\n", gMSI.c.x, gMSI.c.y, gMSI.c.z);
@@ -438,7 +422,7 @@ int main (int argc, char *argv[])
          scaleV3I(&(gMSI.c), &(gCtx.org.def), 0.5);
       }
 
-      printf("\nmain() - initialisation complete\n----\n");
+      report(LOG1,"\nmain() - initialisation complete\n----\n");
       //pragma acc set device_type(acc_device_none) no effect ???
 
       //initW(gCtx.wPhase[0].w, 0.5, 6, 0); // ***M8***
@@ -457,7 +441,7 @@ int main (int argc, char *argv[])
 
          //iT= 0; iN= iT & 1;
          param.nHood=md.nHood;
-         param.iter= 50; if (mapID > 0) { param.iter= 200; }
+         param.iter= 50; //if (mapID > 0) { param.iter= 200; }
          param.rD=   0.5;
          iT= testMap(&rr, &param, &md, iT, "NRED.rgb");
          iN= iT & 1;
@@ -466,9 +450,9 @@ int main (int argc, char *argv[])
          // dependant diffusion test
          if (1 == md.mapElemBytes)
          {
-            DiffScalar *pS, t= 1E-15; //lerpF64(rr.uMin, rr.mm.vMax, 1E-15);
-            size_t n= map8DupCons(gCtx.pMC, gCtx.pM, &md, &(gCtx.org), gCtx.pSR[iN], t);
-            printf("map8DupCons(... %G) -> %zu\n", t, n);
+            DiffScalar *pS;
+            DupConsParam dcp={1E-15};//lerpF64(rr.uMin, rr.mm.vMax, 1E-15);
+            size_t n= map8DupCons(gCtx.pMC, gCtx.pM, &md, &(gCtx.org), gCtx.pSR[iN], &dcp);
 
             n= gCtx.org.n1F * sizeof(*pS);
             pS= malloc(n);
@@ -477,7 +461,7 @@ int main (int argc, char *argv[])
                memcpy(pS, gCtx.pSR[iN], n);
                SWAP(void*, gCtx.pMC, gCtx.pM);
 
-               param.iter*= 2;
+               //param.iter= 200;
                iT= testMap(&rr, &param, &md, 0, "NDEP.rgb");
                iN= iT & 1;
                printf("rr: s=%G um=%G mm=%G,%G\n", rr.sum, rr.uMin, rr.mm.vMin, rr.mm.vMax);
@@ -490,6 +474,6 @@ int main (int argc, char *argv[])
       }
    }
    release(&gCtx);
-   printf("Complete\n");
+   report(LOG1,"Complete\n");
    return(r);
 } // main

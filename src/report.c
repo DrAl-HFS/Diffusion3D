@@ -16,16 +16,19 @@ static ReportCtx gRC={0xFF,0xFF,0xFF,0xFF};
 
 /***/
 
-static const char * getPrefix (U8 tid)
+static const char * getPrefix (U8 tid, U8 lid)
 {
 static const char *pfx[]=
 {
    NULL,
-   "TRACE",
-   "WARNING",
-   "ERROR"
+   "TRACE: ",
+   "WARNING: ",
+   "ERROR: "
 };
-   return( pfx[ tid&0x3 ] );
+   if ((0 == tid) && (lid > LOG1)) { return("\t"); }
+   else if (tid <= 0x3) { return( pfx[ tid ] ); }
+   //else
+   return NULL;
 } // getPrefix
 
 int report (U8 id, const char fmt[], ...)
@@ -42,12 +45,12 @@ int report (U8 id, const char fmt[], ...)
    }
    else
    {
-      const U8 tid= (id & ERR) >> REP_MSK_BITS;
-      const U8 lid= (id & 0x03);
+      const U8 tid= (id & REPORT_CID_MASK) >> REPORT_CID_SHIFT;
+      const U8 lid= (id & REPORT_LID_MASK) >> REPORT_LID_SHIFT;
       if (gRC.filterMask[tid] & (1 << lid))
       {
-         const char *p= getPrefix(tid);
-         if (p) { r+= fprintf(stderr, "%s: ", p); }
+         const char *p= getPrefix(tid,lid);
+         if (p) { r+= fprintf(stderr, "%s", p); }
          va_start(args,fmt);
          r+= vfprintf(stderr, fmt, args);
          va_end(args);

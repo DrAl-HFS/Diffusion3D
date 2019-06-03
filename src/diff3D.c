@@ -501,7 +501,7 @@ U32 getBoundaryM26V (Index x, Index y, Index z, const MMV3I *pMM)
    const U32 m6= getBoundaryM6(x, y, z, pMM);
    const U32 m12= getBoundaryM12(m6);
    const U32 m8= getBoundaryM8(m6);
-   printf("getBoundaryM26V(%d, %d, %d) - m6=0x%x, m12=0x%x, m8=0x%x\n", x, y, z, m6, m12, m8);
+   report(TRC,"getBoundaryM26V(%d, %d, %d) - m6=0x%x, m12=0x%x, m8=0x%x\n", x, y, z, m6, m12, m8);
    return(m6 | (m12 << 6) | (m8 << 18));
 } // getBoundaryM26V
 
@@ -510,6 +510,6 @@ void test (const DiffOrg * pO)
    Stride s26m[26];
 
    setS26M(s26m+0, pO->step, 0x3FFFFFF); // (1<<26)-1
-   printf("s26m[]=\n");
-   for (int i=0; i<26; i++) printf("%d\n",s26m[i]);
+   report(TRC,"s26m[]=\n");
+   for (int i=0; i<26; i++) report(TRC,"%d\n",s26m[i]);
 } // test

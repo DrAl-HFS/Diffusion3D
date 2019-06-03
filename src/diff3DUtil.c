@@ -28,7 +28,7 @@ static void transLXNU8 (U8 *pR, const U8 *pS, size_t n, const U16 lm[2])
 static int findIdxT (const size_t h[], int maxH, size_t t)
 {
    size_t s=0;
-   int i= 0;//printf("%d:%zu\n", i, s); 
+   int i= 0;//report(TRC,"%d:%zu\n", i, s); 
    do { s+= h[i]; i+= (s < t); } while ((s < t) && (i < maxH));
    return(i);
 } // findIdxT
@@ -43,7 +43,7 @@ static int popT (int t[], const U8 *pS, const size_t n, const float popF[], cons
       float f= popF[iF];
       if ((f > 0) && (f <= 1)) { f*= n; }
       t[iF]= findIdxT(h, 256, f);
-      printf(" popT%d/%d %G -> %d\n", iF, nF, f, t[iF]);
+      report(LOG2,"popT%d/%d %G -> %d\n", iF, nF, f, t[iF]);
    }
    return(nF);
 } // popT
@@ -58,9 +58,9 @@ static size_t imgU8PopTransferPerm (U8 *pPerm, const U8 *pS, const size_t n, con
       float lm[2];
       lm[0]= (float)(maxPerm - 0) / (iT[1] - iT[0]);
       lm[1]= maxPerm - lm[0] * iT[1];
-      printf("perm %Gx+%G\n", lm[0],lm[1]);
+      report(TRC0,"perm %Gx+%G\n", lm[0],lm[1]);
       int v[2]= { iT[0]*lm[0]+lm[1], iT[1]*lm[0]+lm[1] };
-      printf(" %d->%d %d->%d\n", iT[0],v[0],iT[1],v[1]);
+      report(TRC0," %d->%d %d->%d\n", iT[0],v[0],iT[1],v[1]);
       for (size_t i= 0; i<n; i++)
       {
          int v= lm[0] * pS[i] + lm[1]; 
@@ -183,7 +183,7 @@ static size_t consNHB (void * const pM, const U8 nMB, const U8 nNH, const U8 * c
       {
          const size_t iB= i * nMB;
          const D3MapElem m= readBytesLE(pM, iB, nMB);
-         w+= (0 == (m & nhM)); if (0 == (m & nhM)) { printf("\n***%zu?\n\n", i); }
+         w+= (0 == (m & nhM)); if (0 == (m & nhM)) { report(LOG1,"***%zu?\n\n", i); }
          for (U8 j=0; j < nNH; j++)
          {  // adjust all available neighbours, preventing flux into site
             if (m & (1<<j)) { andBytesLE(pM, i + step[j], nMB, revM[j]); }
@@ -208,14 +208,14 @@ static void consMapNHX (void * const pM, const U8 nMB, const U8 nNH, const U8 * 
 {
    D3MapElem revM[26];
 
-   if (nNH > (nMB<<3)) { printf("ERROR: constrainMapNH() - nNH=%u, nMB=%u\n", nNH, nMB); }
+   if (nNH > (nMB<<3)) { report(ERR0,"constrainMapNH() - nNH=%u, nMB=%u\n", nNH, nMB); }
    if (nNH <= 26)
    {
       size_t w=0;
       genRevM(revM,nNH);
       if (4 == nMB) { w= consNH32(pM, nNH, pPermU8, pO->n, pO->step, revM); }
       else { w= consNHB(pM, nMB, nNH, pPermU8, pO->n, pO->step, revM); }
-      if (w > 0) { printf("WARNING: constrainMapNH() - %zu degenerate map entries\n", w);}
+      if (w > 0) { report(WRN0,"constrainMapNH() - %zu degenerate map entries\n", w);}
    }
 } // consMapNHX
 
@@ -225,24 +225,24 @@ float processMap (void * pM, const U8 nMapBytes, const U8 nNHBits, const U8 * pP
 {
    size_t pd[256]={0,};
 
-   printf("transfer...\n");
+   report(TRC0,"transfer...\n");
    permTransferMapNH(pM, pd, nMapBytes, nNHBits, 8*nMapBytes-nNHBits, pPerm, pO->n);
    if (v > 0)
    {
       float r= 100.0 / pO->n;
-      printf("PermDist:\n");
+      report(TRC0,"PermDist:\n");
       for (int i=0; i<256; i++)
       {
-         if (pd[i] > 0) { printf("%d: %12zu = %G%%\n", i, pd[i], r * pd[i]); } 
+         if (pd[i] > 0) { report(LOG2,"%d: %12zu = %G%%\n", i, pd[i], r * pd[i]); } 
       }
-      printf("\n");
+      report(LOG1,"\n");
       //if (4 == nMapBytes) { dumpDMMBC(pPerm, pM, pO->n, -1); }
    }
-   printf("seal...\n");
+   report(TRC0,"seal...\n");
    sealBoundaryMapNH(pM, nMapBytes, pO, gExtMask);
    //if ((v > 0) && (4 == nMapBytes)) { dumpDMMBC(pPerm, pM, pO->n, (1<<nNHBits)-1); }
 
-   printf("constrain...\n");
+   report(TRC0,"constrain...\n");
    consMapNHX(pM, nMapBytes, nNHBits, pPerm, pO);
    //if ((v > 0) && (4 == nMapBytes)) { dumpDMMBC(pPerm, pM, pO->n, (1<<nNHBits)-1); }
 
@@ -307,7 +307,7 @@ DiffScalar initIsoW (DiffScalar w[], DiffScalar r, U32 nHood, U32 f)
 
    t= (n[0] * w[1] + n[1] * w[2] + n[2] * w[3]);
    w[0]= 1 - t;
-   if (f & 1) { printf("initIsoW() - w[]= %G, %G, %G, %G\n", w[0], w[1], w[2], w[3]); }
+   if (f & 1) { report(TRC0,"initIsoW() - w[]= %G, %G, %G, %G\n", w[0], w[1], w[2], w[3]); }
    return(t);
 } // initIsoW
 
@@ -346,7 +346,7 @@ float setDefaultMap (D3MapElem *pM, MapDesc *pMD, const V3I *pD, const U32 id)
          }
 #else
          adjustMapN(pM, &org, 26, gExtMask);
-         //printf("adjustMap26() - %zu\n", adjustMap26(pM, &org) );
+         //report(TRC,"adjustMap26() - %zu\n", adjustMap26(pM, &org) );
 #endif
          break;
       }
@@ -355,7 +355,7 @@ float setDefaultMap (D3MapElem *pM, MapDesc *pMD, const V3I *pD, const U32 id)
 #if 1
    size_t t= 0;
    for (size_t i=0; i < n; i++) { t+= bitCountZ(pM[i] ^ me); }
-   printf("setDefaultMap() - %zu\n",t);
+   report(TRC0,"setDefaultMap() - %zu\n",t);
 #endif
    return(1);
 } // setDefaultMap
@@ -475,7 +475,7 @@ float mapFromU8Raw (void *pM, MapDesc *pMD, const MemBuff *pWS, const char *path
       if (path)
       {
          bytes= loadBuff(pRaw, path, MIN(bytes, pWS->bytes));
-         printf("mapFromU8Raw() - %G%cBytes\n", binSizeZ(&ch, bytes), ch);
+         report(TRC0,"mapFromU8Raw() - %G%cBytes\n", binSizeZ(&ch, bytes), ch);
          pRaw= pWS->p;
       } else { memcpy(pRaw, pM, bytes); }
       if (bytes >= org.n)
@@ -509,9 +509,9 @@ float mapFromU8Raw (void *pM, MapDesc *pMD, const MemBuff *pWS, const char *path
                transLXNU8(pRaw, pPerm, org.n, lm);
             }
             bytes= saveBuff(pRaw, name, org.n);
-            printf("%s %G%cBytes\n", name, binSizeZ(&ch,bytes), ch);
+            report(TRC0,"%s %G%cBytes\n", name, binSizeZ(&ch,bytes), ch);
          }
-         //printf("pRM->flags=0x%02x\n", pRM->flags);
+         //report(TRC,"pRM->flags=0x%02x\n", pRM->flags);
          if (pRM->flags & D3UF_CLUSTER_TEST)
          {
             MemBuff ws;
@@ -522,7 +522,7 @@ float mapFromU8Raw (void *pM, MapDesc *pMD, const MemBuff *pWS, const char *path
             adjustMemBuff(&ws, pWS, org.n, 0); // * sizeof(*pPerm);
             clusterExtract(&r, &ws, pPerm, &(org.def), org.stride);
             bytes= r.nNI * sizeof(*(r.pNI)) + r.nNC * sizeof(*(r.pNC));
-            printf("Total: %G%cBytes\n", binSizeZ(&ch,bytes), ch);
+            report(TRC0,"Total: %G%cBytes\n", binSizeZ(&ch,bytes), ch);
             if (r.iNCMax > 0)
             {
                MMU32 maxC;
@@ -532,10 +532,10 @@ float mapFromU8Raw (void *pM, MapDesc *pMD, const MemBuff *pWS, const char *path
                U32 midN= findNIMinD(pMaxNI, nMaxNI, dotS3(c.x, c.y, c.z, org.stride));
 
                bytes= nMaxNI * sizeof(*(r.pNI));
-               printf("Max: C%u : %u (%G%%) %G%cBytes\n", r.iNCMax, nMaxNI, nMaxNI * 100.0 / org.n, binSizeZ(&ch,bytes), ch);
+               report(TRC0,"Max: C%u : %u (%G%%) %G%cBytes\n", r.iNCMax, nMaxNI, nMaxNI * 100.0 / org.n, binSizeZ(&ch,bytes), ch);
                //pC[iM-1] + s >> 1); // median
                split3(&(pMD->site.x), pMaxNI[midN], org.stride);
-               printf("Mid: [%u] : %u -> (%d,%d,%d)\n", midN, r.pNI[midN], pMD->site.x, pMD->site.y, pMD->site.z);
+               report(TRC0,"Mid: [%u] : %u -> (%d,%d,%d)\n", midN, r.pNI[midN], pMD->site.x, pMD->site.y, pMD->site.z);
 
                if (pRM->flags & D3UF_CLUSTER_SAVE)
                {
@@ -544,7 +544,7 @@ float mapFromU8Raw (void *pM, MapDesc *pMD, const MemBuff *pWS, const char *path
                   for (U32 i= maxC.vMin; i < maxC.vMax; i++) { pPerm[ r.pNI[i] ]= 0xF0; }
                   for (U32 i= maxC.vMax; i<ve; i++) { pPerm[ r.pNI[i] ]= 0x20; }
                   bytes= saveBuff(pPerm, name, org.n);
-                  printf("%s %G%cBytes\n", name, binSizeZ(&ch,bytes), ch);
+                  report(TRC0,"%s %G%cBytes\n", name, binSizeZ(&ch,bytes), ch);
                }
                
                if (1 == pMD->mapElemBytes)
@@ -555,7 +555,7 @@ float mapFromU8Raw (void *pM, MapDesc *pMD, const MemBuff *pWS, const char *path
                   memmove(p, pMaxNI, bytes); pMaxNI= p;
                   adjustMemBuff(&ws, pWS, 0, bytes);
                   clusterMapTest(ws, pMaxNI, nMaxNI, pM, &org);
-               } else { printf("WARNING: offsetMapTest() - does not support mapBytes=%u\n", pMD->mapElemBytes); }
+               } else { report(WRN0,"offsetMapTest() - does not support mapBytes=%u\n", pMD->mapElemBytes); }
             }
          }
          else if (0 == findInnoc(&(pMD->site), pPerm, &org) )
@@ -598,3 +598,28 @@ size_t constrainMap (void * pM, const void * pW, const MapDesc * pMD, const Diff
    }
    return(0);
 } // constrainMap
+
+size_t map8DupCons
+(
+   D3S6MapElem    * pR,     // result constrained map
+   const D3S6MapElem * pM, // reference map
+   const MapDesc  * pMD,    // map props
+   const DiffOrg  * pO,     // scalar props
+   const DiffScalar * pS,  // scalar field(s)
+   const DupConsParam * pP      // threshold >= 
+)
+{
+   size_t l, m= 0, n= 0;
+   for (size_t i=0; i<pO->n1F; i++)
+   {
+      if (pS[i * pO->stride[0]] >= pP->t)
+      {
+         pR[i]= pM[i]; 
+         ++n;
+      } else { pR[i]= 0; ++m; }
+   }
+   l= constrainMap(pR, pM, pMD, pO);
+   //if (l != n) { report(ERR,"map8DupCons() - %zu %zu\n", l, n); }
+   report(TRC0,"map8DupCons(... %G) -> %zu\n", pP->t, n);
+   return(n);
+} // map8DupCons

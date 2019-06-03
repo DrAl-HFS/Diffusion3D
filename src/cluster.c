@@ -101,10 +101,10 @@ U32 clusterExtract (ClustRes *pR, const MemBuff *pWS, U8 *pImg, const V3I *pDef,
    r.pNC= pWS->p;
    
    r.pNI= r.pNC+mC; mN-= 1;
-   printf("Cluster prep max: %unodes %uclusters\n", mN, mC);
+   report(TRC0,"Cluster prep max: %unodes %uclusters\n", mN, mC);
    r.nNC= clusterXDYZBN6(r.pNI, r.pNC, pImg, pDef, stride);
    r.nNI= r.pNC[r.nNC-1];
-   printf("Found: %unodes %uclusters\n", r.nNI, r.nNC);
+   report(LOG2,"Found: %unodes %uclusters\n", r.nNI, r.nNC);
 
    r.iNCMax= 0;
    m= 1000;
@@ -115,7 +115,7 @@ U32 clusterExtract (ClustRes *pR, const MemBuff *pWS, U8 *pImg, const V3I *pDef,
       U32 s= r.pNC[i] - r.pNC[i-1];
       if (s >= m)
       {
-         printf("C%u : %u\n", i, s);
+         report(LOG2,"C%u : %u\n", i, s);
          if (s > mC) { r.iNCMax= i; mC= s; }
       }
    }
@@ -170,12 +170,12 @@ void clusterAssess (const ClustIdx ni[], const size_t nNI)
    if (nc > 0) { hnc[MIN(CLUST_SEQ_MAX,nc)]++; nc= 0; }
    if (c > 0) { hc[MIN(CLUST_SEQ_MAX,c)]++; c= 0; }
 
-   printf("clusterAssess() -\n");
+   report(TRC0,"clusterAssess() -\n");
    for (int i= 0; i<CLUST_SEQ_BINS; i++)
    {
       if (hc[i] > 0)
       {
-         printf("%d: %8u %8u\n", i, hc[i], hnc[i]);
+         report(LOG2,"%d: %8u %8u\n", i, hc[i], hnc[i]);
       }
    }
 } // clusterAssess
@@ -188,12 +188,12 @@ void clusterAssess (const ClustIdx ni[], const size_t nNI)
 void testC (Stride s[3])
 {
    I32 v[3], d=100;
-   printf("test(%d,%d,%d)\n", s[0], s[1], s[2]);
+   report(TRC0,"test(%d,%d,%d)\n", s[0], s[1], s[2]);
    for (size_t i= 0; i<(1<<20); i+= d)
    {
       split3(v, i, s);
       size_t j= index3(v[0], v[1], v[2], s);
-      printf("%zu -> (%u,%u,%u) -> %zu\n", i, v[0], v[1], v[2], j);
+      report(TRC0,"%zu -> (%u,%u,%u) -> %zu\n", i, v[0], v[1], v[2], j);
       d+= 100;
    }
 } // testCS

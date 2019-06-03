@@ -11,13 +11,18 @@
 extern "C" {
 #endif
 
-#define REP_MSK_BITS (4)
-#define OUT 0x00
-#define TRC 0x10
-#define WRN 0x20
-#define ERR 0x30
+#define OUT  0x00
+#define LOG1 0x01
+#define LOG2 0x02
+#define TRC0 0x10
+#define WRN0 0x20
+#define ERR0 0x30
 // Upper two bits of each nybble reserved: 
-// id is --xx--yy where xx=category bits yy=level bits
+// id is --xx--yy where xx= category bits yy=level bits
+#define REPORT_CID_MASK   0x30
+#define REPORT_CID_SHIFT  4
+#define REPORT_LID_MASK   0x03
+#define REPORT_LID_SHIFT  0
 
 /***/
 

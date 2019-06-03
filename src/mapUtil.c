@@ -52,8 +52,8 @@ size_t initMapOrg (MapOrg *pO, const V3I *pD)
 
    step6FromStride(pO->step, pO->stride);
    diffSet6To26(pO->step);
-   //printf("initMapOrg() - s26m[]=\n");
-   //for (int i=0; i<26; i++) { printf("%d\n", pO->step[i]); }
+   //report(TRC,"initMapOrg() - s26m[]=\n");
+   //for (int i=0; i<26; i++) { report(TRC,"%d\n", pO->step[i]); }
 
    pO->mm.vMin.x= pO->mm.vMin.y= pO->mm.vMin.z= 0;
    pO->mm.vMax.x= pO->def.x-1;
