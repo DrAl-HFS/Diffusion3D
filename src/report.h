@@ -11,12 +11,13 @@
 extern "C" {
 #endif
 
-#define OUT  0x00
-#define LOG1 0x01
-#define LOG2 0x02
-#define TRC0 0x10
-#define WRN0 0x20
-#define ERR0 0x30
+#define OUT  0x00 // -> stdout as is: no prefix, no masking
+#define DBG  0x01 // -> stderr   "     "           "
+#define LOG1 0x02 // -> stderr   : no prefix, maskable
+#define LOG2 0x03 // ->    "     : indented,    "
+#define TRC0 0x10 // -> stderr   : prefixed,    "
+#define WRN0 0x20 // " " "
+#define ERR0 0x30 // " " " 
 // Upper two bits of each nybble reserved: 
 // id is --xx--yy where xx= category bits yy=level bits
 #define REPORT_CID_MASK   0x30

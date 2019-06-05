@@ -605,21 +605,20 @@ size_t map8DupCons
    const D3S6MapElem * pM, // reference map
    const MapDesc  * pMD,    // map props
    const DiffOrg  * pO,     // scalar props
-   const DiffScalar * pS,  // scalar field(s)
-   const DupConsParam * pP      // threshold >= 
+   const DiffScalar * pS0,  // scalar field
+   const DiffScalar * pS1,  // scalar field
+   const DupConsParam * pP  // threshold >= 
 )
 {
    size_t l, m= 0, n= 0;
    for (size_t i=0; i<pO->n1F; i++)
    {
-      if (pS[i * pO->stride[0]] >= pP->t)
-      {
-         pR[i]= pM[i]; 
-         ++n;
-      } else { pR[i]= 0; ++m; }
+      DiffScalar s= pS0[i] + pS1[i];
+      if (s >= pP->t[1]) { pR[i]= pM[i]; ++n; } 
+      else if (s <= pP->t[0]) { pR[i]= 0x00; ++m; }
    }
    l= constrainMap(pR, pM, pMD, pO);
    //if (l != n) { report(ERR,"map8DupCons() - %zu %zu\n", l, n); }
-   report(TRC0,"map8DupCons(... %G) -> %zu\n", pP->t, n);
+   report(TRC0,"map8DupCons() T:%G,%G -> %zu, %zu, cons.= %zu\n", pP->t[0], pP->t[1], n, m, l);
    return(n);
 } // map8DupCons

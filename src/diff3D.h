@@ -37,7 +37,7 @@ typedef struct
    DiffScalar w[2]; // For lattice distances 0, 1 OR sqrt(2) OR sqrt(3) (centre, face-neighbour OR edge-neighbour OR vertex-neighbour)
 } D3S6IsoWeights;
 
-// D3S8IsoWeights, D3S12IsoWeights, D3S20IsoWeights 
+// D3S8IsoWeights, D3S12IsoWeights, D3S20IsoWeights
 // NB - diagonal-only stencils create a pair of distinct subspaces (black vs white chessboard)
 
 typedef struct
@@ -55,10 +55,10 @@ typedef struct
 
 // Isotropic 3D diffusion functions:
 
-#ifdef LFD3D
+#ifdef LDF3D
 // Hacky exposure of lower level function for Fungi project integration & test
 // (single shot, requires OpenACC buffer management beforehand i.e. no copy generated within)
-void procD3S6M8
+extern void procD3S6M8
 (
    DiffScalar * restrict pR,  // Result field(s)
    const DiffScalar  * const pS, // Source field(s)
@@ -66,7 +66,7 @@ void procD3S6M8
    const D3S6IsoWeights  * const pW,
    const D3S6MapElem * const pM8
 );
-#endif // LFD3D
+#endif // LDF3D
 
 // 6-point/2-weight stencil "3D Von-Neumann neighbourhood"
 // NB 8bit map entries and only 2 weights
@@ -81,7 +81,7 @@ extern U32 diffProcIsoD3S6M8
 );
 
 // All stencils accessible through common interface
-// NB 32bit map entries and all weights padded 
+// NB 32bit map entries and all weights padded
 U32 diffProcIsoD3SxM
 (
    DiffScalar * restrict pR,  // Result field(s)
@@ -96,7 +96,7 @@ U32 diffProcIsoD3SxM
 // Expand 6 (-+strideXYZ) steps to 26 neighbourhood
 extern void diffSet6To26 (Stride s26[]);
 
-// Boundary check coordinates against the specified min-max volume and return flag mask of permissible memory accesses 
+// Boundary check coordinates against the specified min-max volume and return flag mask of permissible memory accesses
 extern U32 getBoundaryM26 (Index x, Index y, Index z, const MMV3I *pMM);
 extern U32 getBoundaryM26V (Index x, Index y, Index z, const MMV3I *pMM); // verbose (debug) version
 

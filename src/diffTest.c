@@ -450,9 +450,9 @@ int main (int argc, char *argv[])
          // dependant diffusion test
          if (1 == md.mapElemBytes)
          {
-            DiffScalar *pS;
-            DupConsParam dcp={1E-15};//lerpF64(rr.uMin, rr.mm.vMax, 1E-15);
-            size_t n= map8DupCons(gCtx.pMC, gCtx.pM, &md, &(gCtx.org), gCtx.pSR[iN], &dcp);
+            DiffScalar *pS= gCtx.pSR[iN];
+            DupConsParam dcp={1E-15,1E-15};//lerpF64(rr.uMin, rr.mm.vMax, 1E-15);
+            size_t n= map8DupCons(gCtx.pMC, gCtx.pM, &md, &(gCtx.org), pS, pS, &dcp);
 
             n= gCtx.org.n1F * sizeof(*pS);
             pS= malloc(n);

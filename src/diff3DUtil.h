@@ -48,7 +48,7 @@ typedef struct
 
 typedef struct
 {
-   DiffScalar t;
+   DiffScalar t[2]; // Hysteresis threshold: <= t[0], >= t[1]
 } DupConsParam;
 
 
@@ -73,7 +73,8 @@ extern size_t map8DupCons
    const D3S6MapElem * pM, // reference map
    const MapDesc  * pMD,    // map props
    const DiffOrg  * pO,     // scalar props
-   const DiffScalar * pS,  // scalar field(s)
+   const DiffScalar * pS0,  // scalar field
+   const DiffScalar * pS1,  // scalar field
    const DupConsParam * pP      // threshold >= 
 );
 

@@ -37,10 +37,11 @@ int report (U8 id, const char fmt[], ...)
    va_list args;
    // NB: stdout & stderr are supposed to be macros (Cxx spec.) and so might
    // create safety/portability issues if not handled in the obvious way...
-   if (OUT == id)
+   if (id <= DBG)
    {
       va_start(args,fmt);
-      r+= vfprintf(stdout, fmt, args);
+      if (OUT == id) { r+= vfprintf(stdout, fmt, args); }
+      else { r+= vfprintf(stderr, fmt, args); }
       va_end(args);
    }
    else
