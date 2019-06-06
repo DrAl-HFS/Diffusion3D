@@ -104,7 +104,7 @@ U32 clusterExtract (ClustRes *pR, const MemBuff *pWS, U8 *pImg, const V3I *pDef,
    report(TRC0,"Cluster prep max: %unodes %uclusters\n", mN, mC);
    r.nNC= clusterXDYZBN6(r.pNI, r.pNC, pImg, pDef, stride);
    r.nNI= r.pNC[r.nNC-1];
-   report(LOG2,"Found: %unodes %uclusters\n", r.nNI, r.nNC);
+   report(TRC1,"Found: %unodes %uclusters\n", r.nNI, r.nNC);
 
    r.iNCMax= 0;
    m= 1000;
@@ -115,7 +115,7 @@ U32 clusterExtract (ClustRes *pR, const MemBuff *pWS, U8 *pImg, const V3I *pDef,
       U32 s= r.pNC[i] - r.pNC[i-1];
       if (s >= m)
       {
-         report(LOG2,"C%u : %u\n", i, s);
+         report(TRC1,"C%u : %u\n", i, s);
          if (s > mC) { r.iNCMax= i; mC= s; }
       }
    }
@@ -175,7 +175,7 @@ void clusterAssess (const ClustIdx ni[], const size_t nNI)
    {
       if (hc[i] > 0)
       {
-         report(LOG2,"%d: %8u %8u\n", i, hc[i], hnc[i]);
+         report(TRC1,"%d: %8u %8u\n", i, hc[i], hnc[i]);
       }
    }
 } // clusterAssess
@@ -193,7 +193,7 @@ void testC (Stride s[3])
    {
       split3(v, i, s);
       size_t j= index3(v[0], v[1], v[2], s);
-      report(TRC0,"%zu -> (%u,%u,%u) -> %zu\n", i, v[0], v[1], v[2], j);
+      report(TRC1,"%zu -> (%u,%u,%u) -> %zu\n", i, v[0], v[1], v[2], j);
       d+= 100;
    }
 } // testCS

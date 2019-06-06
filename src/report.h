@@ -11,25 +11,49 @@
 extern "C" {
 #endif
 
-#define OUT  0x00 // -> stdout as is: no prefix, no masking
-#define DBG  0x01 // -> stderr   "     "           "
-#define LOG1 0x02 // -> stderr   : no prefix, maskable
-#define LOG2 0x03 // ->    "     : indented,    "
-#define TRC0 0x10 // -> stderr   : prefixed,    "
-#define WRN0 0x20 // " " "
-#define ERR0 0x30 // " " " 
-// Upper two bits of each nybble reserved: 
-// id is --xx--yy where xx= category bits yy=level bits
-#define REPORT_CID_MASK   0x30
-#define REPORT_CID_SHIFT  4
-#define REPORT_LID_MASK   0x03
-#define REPORT_LID_SHIFT  0
+// Specials: NB supercedes level 0xF FRCD|WRN1 and FRCD|ERR1 ids
+#define OUT  0xFF // -> stdout as is: no prefix, no masking
+#define DBG  0xFE // -> stderr   "     "           "
+
+// Basic report categories
+#define LOG0 0x0 // general log -> stderr   : no prefix, maskable
+#define TRC0 0x1 // call trace -> stderr   : prefixed,    "
+#define WRN0 0x2 // warning         "           "         "
+#define ERR0 0x3 // error           "           "         "
+// Flags
+#define NDNT (1<<2) // Indent (without identifying prefix)
+#define FRCD (1<<3) // Force: disable masking per instance
+
+// Define compact values for continuation reports (indented without prefix)
+#define LOG1 (NDNT|LOG0)
+#define TRC1 (NDNT|TRC0)
+#define WRN1 (NDNT|WRN0)
+#define ERR1 (NDNT|ERR0)
+
+// Upper nybble gives user defined level for flexible masking 
+// bits7..0 = llllffcc : llll=level, ff=flags, cc=category
+#define REPORT_FCID_MASK   0x0F
+#define REPORT_FCID_SHIFT  0
+#define REPORT_LNID_MASK   0xF0
+#define REPORT_LNID_SHIFT  4
+
+// Convenience function call monitoring macros.
+// The string fmt allows showing actual arg values and result e.g. "(%p,%u) -> %d" 
+// NB: adjacent string concatenation, compiler defined symbol, variadic args
+#define REPORT_CALL(id,fmt,...)  report(id,"%s"fmt,__func__,__VA_ARGS__)
+#define TRACE_CALL(fmt,...)      report(TRC0,"%s"fmt,__func__,__VA_ARGS__)
+
 
 /***/
 
-extern int report (U8 id, const char fmt[], ...);
- 
-extern int reportN (U8 id, const char *a[], int n, const char start[], const char sep[], const char *end);
+// General filtered reporting
+extern int report (const U8 id, const char fmt[], ...);
+
+// Buffer hex dump
+extern int reportBytes (const U8 id, const U8 *pB, int nB);
+
+// Hacky multi-string assembly reporting: only goes to OUT or DBG for now
+extern int reportN (const U8 id, const char *a[], int n, const char start[], const char sep[], const char *end);
 
 #ifdef __cplusplus
 } // extern "C"

@@ -422,7 +422,7 @@ int main (int argc, char *argv[])
          scaleV3I(&(gMSI.c), &(gCtx.org.def), 0.5);
       }
 
-      report(LOG1,"\nmain() - initialisation complete\n----\n");
+      report(LOG0,"\nmain() - initialisation complete\n----\n");
       //pragma acc set device_type(acc_device_none) no effect ???
 
       //initW(gCtx.wPhase[0].w, 0.5, 6, 0); // ***M8***
@@ -474,6 +474,6 @@ int main (int argc, char *argv[])
       }
    }
    release(&gCtx);
-   report(LOG1,"Complete\n");
+   report(LOG0,"Complete\n");
    return(r);
 } // main

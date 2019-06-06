@@ -19,20 +19,20 @@ static void analyseNH6 (const I32 * pNHNI, const size_t nNHNI)
       htb[bt]++;
    }
    report(TRC0,"analyseNH6() -\n");
-   report(TRC0,"Raw bits per link dist. :\n");
+   report(TRC1,"Raw bits per link dist. :\n");
    for (U32 b=0; b<32; b++)
    {
       U32 s= 0;
       for (U8 l=0; l < 6; l++) { s+= hlb[l][b]; }
       if (s > 0)
       {
-         report(LOG1,"%2u: ",b);
-         for (U8 l=0; l < 6; l++) { report(LOG1,"%8u ",hlb[l][b]); }
+         report(TRC1,"%2u: ",b);
+         for (U8 l=0; l < 6; l++) { report(TRC1,"%8u ",hlb[l][b]); }
          printf("\n");
       }
    }
    printf("Raw bits per site dist. :\n");
-   for (U32 b=0; b < 128; b++) { if (htb[b] > 0) { report(LOG1,"%2u: %8u\n", b, htb[b]); } }
+   for (U32 b=0; b < 128; b++) { if (htb[b] > 0) { report(TRC1,"%2u: %8u\n", b, htb[b]); } }
    report(LOG1,"\n");
 } // analyseNH6
 
@@ -82,32 +82,32 @@ size_t compressNH6 (MemBuff *pWS, const I32 *pNHNI, const U32 nNI, U8 verbose)
          if (verbose && (bt > mbt))
          {
             mbt= bt;
-            report(LOG1,"%8zu: ", i);
+            report(TRC1,"%8zu: ", i);
             //for (h=0; h < 6; h++) { report(LOG1," %+d", pNHNI[i*6+h]); }
-            report(LOG1," -> 0x%02x ", signM);
+            report(TRC1," -> 0x%02x ", signM);
             for (U8 l=0; l < 6; l++) { report(LOG1," %u", d[l]); }
             //printf(" ->");
             //for (h=0; h < 6; h++) { report(LOG1," %u", d[h]); }
-            report(LOG1," (%u)\n", bt);
+            report(TRC1," (%u)\n", bt);
          }
          htb[bt]++;
       }
-      report(LOG1,"\ncompressNH6() -\n");
-      report(LOG1,"Trans. bits per link dist. :\n");
+      report(TRC0,"\ncompressNH6() -\n");
+      report(TRC1,"Trans. bits per link dist. :\n");
       for (U32 b=0; b<32; b++)
       {
          U32 s= 0;
          for (U8 l=0; l < 6; l++) { s+= hlb[l][b]; }
          if (s > 0)
          {
-            report(LOG1,"%2u: ",b);
-            for (U8 l=0; l < 6; l++) { report(LOG1,"%8u ",hlb[l][b]); }
-            report(LOG1,"\n");
+            report(TRC1,"%2u: ",b);
+            for (U8 l=0; l < 6; l++) { report(TRC1,"%8u ",hlb[l][b]); }
+            report(TRC1,"\n");
          }
       }
       report(LOG1,"Trans. bits per site dist. :\n");
-      for (U32 b=0; b < 128; b++) { if (htb[b] > 0) { report(LOG1,"%2u: %8u\n", b, htb[b]); } }
-      report(LOG1,"\n");
+      for (U32 b=0; b < 128; b++) { if (htb[b] > 0) { report(TRC1,"%2u: %8u\n", b, htb[b]); } }
+      report(TRC1,"\n");
    }
    return(0);
 } // compressNH6
@@ -123,6 +123,7 @@ size_t clusterReorderS (ClustIdx ni[], const size_t nNI)
    report(TRC0,"clusterReorderS() - s=%u\n", s);
    return(s);
 } // clusterReorderS
+
 size_t clusterReorderM (MemBuff ws, ClustIdx ni[], const size_t nNI, ClustIdx *pM, const MapOrg *pO)
 {
    U32 s=0;
@@ -167,7 +168,7 @@ void clusterMapTest (MemBuff ws, ClustIdx *pMaxNI, const size_t nNI, const U8 *p
       memset(ws.p, 0, bytes);
       adjustMemBuff(&ws, &ws, bytes, 0);
       for (size_t i= 0; i < nNI; i++) { ClustIdx j= pMaxNI[i]; pIdxMap[ j ]= i; }
-      report(LOG1,"%G%cbytes\n", binSizeZ(ch,bytes), ch[0]);
+      report(TRC1,"%G%cbytes\n", binSizeZ(ch,bytes), ch[0]);
       if (f & CLF_REORDER2) { clusterReorderM(ws, pMaxNI, nNI, pIdxMap, pO); }
 
       bytes= nNI * nNH * sizeof(ClustIdx);
@@ -175,7 +176,7 @@ void clusterMapTest (MemBuff ws, ClustIdx *pMaxNI, const size_t nNI, const U8 *p
       {
          I32 *pNHNI= ws.p;
          U32 nNHNI= nNH * nNI, err=0,c=0;
-         report(LOG1,"Computing offsets... %p ", pNHNI);
+         report(TRC1,"Computing offsets... %p ", pNHNI);
          memset(ws.p, 0, bytes);
          adjustMemBuff(&ws,&ws,bytes,0);
          for (size_t i= 0; i < nNI; i++)
@@ -190,7 +191,7 @@ void clusterMapTest (MemBuff ws, ClustIdx *pMaxNI, const size_t nNI, const U8 *p
                if (m & (1<<h)) { pNHNI[k+h]= pIdxMap[ j + pO->step[h] ] - i; }
             }
          }
-         report(LOG1,"%G%cbytes\n", binSizeZ(ch,bytes), ch[0]);
+         report(TRC1,"%G%cbytes\n", binSizeZ(ch,bytes), ch[0]);
          if (err > 0) { report(ERR0,"index map corrupt (%u)\n", err); }
 
          report(TRC0,"Analysing...\n");

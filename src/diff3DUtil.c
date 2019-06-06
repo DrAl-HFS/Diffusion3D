@@ -43,7 +43,7 @@ static int popT (int t[], const U8 *pS, const size_t n, const float popF[], cons
       float f= popF[iF];
       if ((f > 0) && (f <= 1)) { f*= n; }
       t[iF]= findIdxT(h, 256, f);
-      report(LOG2,"popT%d/%d %G -> %d\n", iF, nF, f, t[iF]);
+      report(LOG1,"popT%d/%d %G -> %d\n", iF, nF, f, t[iF]);
    }
    return(nF);
 } // popT
@@ -183,7 +183,7 @@ static size_t consNHB (void * const pM, const U8 nMB, const U8 nNH, const U8 * c
       {
          const size_t iB= i * nMB;
          const D3MapElem m= readBytesLE(pM, iB, nMB);
-         w+= (0 == (m & nhM)); if (0 == (m & nhM)) { report(LOG1,"***%zu?\n\n", i); }
+         w+= (0 == (m & nhM)); if (0 == (m & nhM)) { report(WRN0,"***%zu?\n\n", i); }
          for (U8 j=0; j < nNH; j++)
          {  // adjust all available neighbours, preventing flux into site
             if (m & (1<<j)) { andBytesLE(pM, i + step[j], nMB, revM[j]); }
@@ -233,9 +233,9 @@ float processMap (void * pM, const U8 nMapBytes, const U8 nNHBits, const U8 * pP
       report(TRC0,"PermDist:\n");
       for (int i=0; i<256; i++)
       {
-         if (pd[i] > 0) { report(LOG2,"%d: %12zu = %G%%\n", i, pd[i], r * pd[i]); } 
+         if (pd[i] > 0) { report(TRC1,"%d: %12zu = %G%%\n", i, pd[i], r * pd[i]); } 
       }
-      report(LOG1,"\n");
+      report(TRC1,"\n");
       //if (4 == nMapBytes) { dumpDMMBC(pPerm, pM, pO->n, -1); }
    }
    report(TRC0,"seal...\n");

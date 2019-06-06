@@ -38,6 +38,9 @@ extern "C" {
 #define FALSE (0)
 #endif
 
+//define _PASTE(a,b) a##b
+//define PASTE(a,b) _PASTE(a,b)
+
 // Terse type names
 typedef signed char       I8;
 typedef signed short      I16;
