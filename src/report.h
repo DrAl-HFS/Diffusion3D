@@ -37,11 +37,16 @@ extern "C" {
 #define REPORT_LNID_MASK   0xF0
 #define REPORT_LNID_SHIFT  4
 
-// Convenience function call monitoring macros.
+// Convenience macros (can be locally/globally undefined)
+#define REPORT(id, fmt, ...) report(id, fmt, __VA_ARGS__)
+#define TRACE(fmt, ...) report(TRC0, fmt, __VA_ARGS__)
+#define WARN(fmt, ...) report(WRN0, fmt, __VA_ARGS__)
+#define ERROR(fmt, ...) report(ERR0, fmt, __VA_ARGS__)
+// function call monitoring 
 // The string fmt allows showing actual arg values and result e.g. "(%p,%u) -> %d" 
 // NB: adjacent string concatenation, compiler defined symbol, variadic args
-#define REPORT_CALL(id,fmt,...)  report(id,"%s"fmt,__func__,__VA_ARGS__)
-#define TRACE_CALL(fmt,...)      report(TRC0,"%s"fmt,__func__,__VA_ARGS__)
+#define REPORT_CALL(id, fmt, ...)  report(id, "%s"fmt, __func__, __VA_ARGS__)
+#define TRACE_CALL(fmt, ...)   report(TRC0, "%s"fmt, __func__, __VA_ARGS__)
 
 
 /***/

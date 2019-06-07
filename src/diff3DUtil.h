@@ -44,6 +44,7 @@ typedef struct
 {
    U8 mapElemBytes, nHood, maxPermSet, permAlign;
    V3I site;
+   char msg[256];
 } MapDesc;
 
 typedef struct
