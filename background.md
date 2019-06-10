@@ -15,7 +15,7 @@ A practical approach to solving non-trivial diffusion problems is provided by di
 
 #### 1.2) Correctness and Accuracy
 
-The fundamental measure of correctness in any physical model is mass conservation: all quantities should be accounted for. In a closed system without any addition or removal of diffusant, the total quantity is expected to remain the same following every iteration. In practice this is difficult to achieve with perfect precision, due to the way that computing machinery commonly represents and handles numbers. However a high level of precision (better than that of typical laboratory measurements, for example) is achievable with careful implementation. The great fundamental rule of numerical diffusion is the constraint of diffusion coefficients to maintain conservation - see [Crank, 1975][Crank75] for details. Less fundamental but equally important, software implementation of a numerical diffusion scheme introduces other issues that need careful consideration.
+The fundamental measure of correctness in any physical model is mass conservation: all quantities should be accounted for. In a closed system without any addition or removal of diffusant, the total quantity is expected to remain the same following every iteration. In practice this is difficult to achieve with perfect precision, due to the way that computing machinery commonly represents and handles numbers. However a high level of precision (better than that of typical laboratory measurements, for example) is achievable with careful implementation. The great fundamental rule of numerical diffusion is the constraint of diffusion coefficients to maintain conservation - see [Crank, 1975](#bibliography-and-references) for details. Less fundamental but equally important, software implementation of a numerical diffusion scheme introduces other issues that need careful consideration.
 
 Firstly, the use of floating point numbers (having finite range and precision due to their finite storage size) means accuracy is limited. This is significant because of the fractional decrease in the local quantity of diffusant as it spreads across lattice sites within the computational domain (i.e. elements of the array in software). If we repeatedly take half of some initial quantity to a new location, and then half of that to a new location and so on, then the Nth new location will contain 0.5^N of the original quantity. If N is 128 then the quantity at that location is 2.9E-39 of the original - a number smaller than allowed by IEEE-754 single precision floating point representation. A numerical "trick" such as scaling up the original quantity to the largest available number allows this size to be doubled, but then what if the diffusion coefficient is very small? In general it is important to use double precision floating point; this affords accuracy for lattice sizes measuring thousands of elements rather than hundreds.
 
@@ -30,8 +30,8 @@ Big => slow
 Parallel => faster
 
 
-#### Bibliography & References
+#### Bibliography and References
 
-[Crank75]: Crank, J. (1975) The Mathematics of Diffusion (2nd Edn.), Oxford University Press, ISBN0198533446.
-
+Crank, J. (1975) The Mathematics of Diffusion (2nd Edn.), Oxford University Press, ISBN0198533446.
+[Crank75]: http://www-eng.lbl.gov/~shuman/NEXT/MATERIALS%26COMPONENTS/Xe_damage/Crank-The-Mathematics-of-Diffusion.pdf
 
