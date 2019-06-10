@@ -25,8 +25,7 @@ SRC:= $(FILES:%.c=$(SRC_DIR)/%.c)
 OBJ:= $(FILES:%.c=$(OBJ_DIR)/%.o)
 
 TARGET:= lib/libDiff3D.so
-OPTFLAGS:= -O2 -fPIC
-DEFINES:= -DLFD3D=1
+DEFINES:= -DLDF3D=1
 LDFLAGS:= -shared
 
 ### Phony Targets for building variants	###
@@ -36,6 +35,9 @@ LDFLAGS:= -shared
 dbg: OPTFLAGS= -g -fPIC
 # -Minfo=acc 
 opt: OPTFLAGS= -O4 -fPIC
+# default
+OPTFLAGS?= -O2 -fPIC
+
 
 # Common additions not working... OPTFLAGS+= -fPIC
 
