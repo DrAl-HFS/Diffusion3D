@@ -28,7 +28,7 @@ static void transLXNU8 (U8 *pR, const U8 *pS, size_t n, const U16 lm[2])
 static int findIdxT (const size_t h[], int maxH, size_t t)
 {
    size_t s=0;
-   int i= 0;//REPORT(TRC,"%d:%zu\n", i, s); 
+   int i= 0;//REPORT(TRC,"%d:%zu\n", i, s);
    do { s+= h[i]; i+= (s < t); } while ((s < t) && (i < maxH));
    return(i);
 } // findIdxT
@@ -63,7 +63,7 @@ static size_t imgU8PopTransferPerm (U8 *pPerm, const U8 *pS, const size_t n, con
       TRACE(" %d->%d %d->%d\n", iT[0],v[0],iT[1],v[1]);
       for (size_t i= 0; i<n; i++)
       {
-         int v= lm[0] * pS[i] + lm[1]; 
+         int v= lm[0] * pS[i] + lm[1];
          if (v >= 1) { pPerm[i]= MIN(v,maxPerm); s++; } else { pPerm[i]= 0; }
       }
    }
@@ -82,17 +82,17 @@ static void permTransferMapNH (void * pPNH, size_t s[256], const U8 nMB, const U
 {
    const D3MapElem mNH= (1<<nNH)-1;
    const D3MapElem mP= (1<<nP)-1;
-   
+
    switch (nMB)
    {
       case 4 :
       {
          D3MapElem *pM= pPNH;
          for (size_t i=0; i<n; i++)
-         { 
+         {
             D3MapElem v= pPerm[i] & mP;
             s[v]++;
-            pM[i]= mNH | (v << nNH); 
+            pM[i]= mNH | (v << nNH);
          }
          break;
       }
@@ -100,10 +100,10 @@ static void permTransferMapNH (void * pPNH, size_t s[256], const U8 nMB, const U
       {
          U8 *pM= pPNH;
          for (size_t i=0; i<n; i++)
-         { 
+         {
             U8 v= pPerm[i] & mP;
             s[v]++;
-            pM[i]= mNH | (v << nNH); 
+            pM[i]= mNH | (v << nNH);
          }
          break;
       }
@@ -151,7 +151,7 @@ static void sealBoundaryMapNH (void *pM, const U8 nBV, const MapOrg *pO, const D
 } // sealBoundaryMapNH
 
 
-static size_t consNH32 (D3MapElem * const pM, const U8 nNH, const U8 * const pPermU8, const size_t n, 
+static size_t consNH32 (D3MapElem * const pM, const U8 nNH, const U8 * const pPermU8, const size_t n,
                      const Stride step[], const D3MapElem revM[])
 {
    const D3MapElem nhM= (1 << nNH) - 1;
@@ -172,7 +172,7 @@ static size_t consNH32 (D3MapElem * const pM, const U8 nNH, const U8 * const pPe
    return(w);
 } // consNH32
 
-static size_t consNHB (void * const pM, const U8 nMB, const U8 nNH, const U8 * const pPermU8, const size_t n, 
+static size_t consNHB (void * const pM, const U8 nMB, const U8 nNH, const U8 * const pPermU8, const size_t n,
                      const Stride step[], const D3MapElem revM[])
 {
    const D3MapElem nhM= (1 << nNH) - 1;
@@ -233,7 +233,7 @@ float processMap (void * pM, const U8 nMapBytes, const U8 nNHBits, const U8 * pP
       TRACE("%s\n","PermDist:");
       for (int i=0; i<256; i++)
       {
-         if (pd[i] > 0) { REPORT(TRC1,"%d: %12zu = %G%%\n", i, pd[i], r * pd[i]); } 
+         if (pd[i] > 0) { REPORT(TRC1,"%d: %12zu = %G%%\n", i, pd[i], r * pd[i]); }
       }
       REPORT(TRC1,"\n",0);
       //if (4 == nMapBytes) { dumpDMMBC(pPerm, pM, pO->n, -1); }
@@ -262,7 +262,7 @@ size_t initDiffOrg (DiffOrg *pO, const U16 def[3], U32 nP)
    for (int i=0; i<DIFF_DIM; i++)
    {
       pO->stride[i]= n; // planar
-      n*= def[i]; 
+      n*= def[i];
    }
    pO->phaseStride= n; // planar
 
@@ -370,23 +370,23 @@ Bool32 getProfileRM (RawTransMethodDesc *pRM, const U8 idT, const U8 idM, const 
          case MAP_ID_B1NH6 : mBytes= 1; nHood= 6;  bitsFree= 2;  break;
          case MAP_ID_B4NH6 : mBytes= 4; nHood= 6;  bitsFree= 26; break;
          case MAP_ID_B4NH18 : mBytes= 4; nHood= 18; bitsFree= 14; break;
-         case MAP_ID_B4NH26 : mBytes= 4; nHood= 26; bitsFree= 6;  break;   
+         case MAP_ID_B4NH26 : mBytes= 4; nHood= 26; bitsFree= 6;  break;
          default : return(FALSE);
       }
       switch(idT)
       {
          case TFR_ID_RAW : pRM->method= 0; pRM->maxPermLvl= 1;
-            pRM->param[0]= 0.0; pRM->param[0]= 0.0; 
+            pRM->param[0]= 0.0; pRM->param[0]= 0.0;
             break;
-         case TFR_ID_THRESHOLD : pRM->method= 1; pRM->maxPermLvl= 1; 
-            pRM->param[0]= 100.0; pRM->param[0]= 0.0; 
+         case TFR_ID_THRESHOLD : pRM->method= 1; pRM->maxPermLvl= 1;
+            pRM->param[0]= 100.0; pRM->param[0]= 0.0;
             break;
          case TFR_ID_PDFPERM :
          {
             U8 mbf= MIN(bitsFree,3);
             bitsFree-= mbf;
             pRM->method= 2; pRM->maxPermLvl= (1<<mbf)-1;
-            pRM->param[0]= 0.35; pRM->param[1]= 0.20; 
+            pRM->param[0]= 0.35; pRM->param[1]= 0.20;
             break;
          }
          default : return(FALSE);
@@ -422,7 +422,7 @@ static int findNear (V3I * pV, const V3I *pC, const U8 * pPerm, const MapOrg * p
       }
    }
    if (r < -1) { return(t); }
-   //else 
+   //else
    return(0);
 } // findNear
 
@@ -445,19 +445,19 @@ static int findInnoc (V3I * pV, const U8 * pPerm, const MapOrg * pO)
          }
       }
    }
-   
+
    statMom3Res1(r, &sm3, 0);
    i.x= r[0].m;
    i.y= r[1].m;
    i.z= r[2].m;
-   *pV= i; 
+   *pV= i;
    size_t j= dotS3(i.x,i.y,i.z,pO->stride);
    //if (pPerm[j] > 0) { }
    return(pPerm[j]);
 } // findInnoc
 
- 
-float mapFromU8Raw (void *pM, MapDesc *pMD, const MemBuff *pWS, const char *path, 
+
+float mapFromU8Raw (void *pM, MapDesc *pMD, const MemBuff *pWS, const char *path,
       const RawTransMethodDesc *pRM, const DiffOrg *pO)
 {
    size_t bytes, n;
@@ -473,7 +473,7 @@ float mapFromU8Raw (void *pM, MapDesc *pMD, const MemBuff *pWS, const char *path
    {
       const V3I c= {org.def.x / 2, org.def.y / 2, org.def.z / 2};
       U8 *pRaw= pWS->p;
-      
+
       if (path)
       {
          bytes= loadBuff(pRaw, path, MIN(bytes, pWS->bytes)); ch[3]= 'L';
@@ -536,7 +536,7 @@ float mapFromU8Raw (void *pM, MapDesc *pMD, const MemBuff *pWS, const char *path
                U32 midN= findNIMinD(pMaxNI, nMaxNI, dotS3(c.x, c.y, c.z, org.stride));
 
                bytes= nMaxNI * sizeof(*(r.pNI));
-               TRACE("Max: C%u : %u (%G%%) %G%cBytes\n", r.iNCMax, nMaxNI, nMaxNI * 100.0 / org.n, binSizeZ(&ch,bytes), ch);
+               TRACE("Max: C%u : %u (%G%%) %G%cBytes\n", r.iNCMax, nMaxNI, nMaxNI * 100.0 / org.n, binSizeZ(ch,bytes), ch[0]);
                //pC[iM-1] + s >> 1); // median
                split3(&(pMD->site.x), pMaxNI[midN], org.stride);
                TRACE("Mid: [%u] : %u -> (%d,%d,%d)\n", midN, r.pNI[midN], pMD->site.x, pMD->site.y, pMD->site.z);
@@ -550,7 +550,7 @@ float mapFromU8Raw (void *pM, MapDesc *pMD, const MemBuff *pWS, const char *path
                   bytes= saveBuff(pPerm, name, org.n);
                   TRACE("%s %G%cBytes\n", name, binSizeZ(ch,bytes), ch[0]);
                }
-               
+
                if (1 == pMD->mapElemBytes)
                {  // move dominant cluster indices to end, for buffer reuse (discarding perm data)
                   bytes= sizeof(*pMaxNI) * nMaxNI;
@@ -571,7 +571,7 @@ float mapFromU8Raw (void *pM, MapDesc *pMD, const MemBuff *pWS, const char *path
    return(r);
 } // mapFromU8Raw
 
-static size_t consU8 (U8 * const pM, const U8 nNH, const U8 * const pRefM, const size_t n, 
+static size_t consU8 (U8 * const pM, const U8 nNH, const U8 * const pRefM, const size_t n,
                      const Stride step[], const D3MapElem revM[])
 {
    size_t w=0;
@@ -611,22 +611,28 @@ size_t map8DupCons
    const DiffOrg  * pO,     // scalar props
    const DiffScalar * pS0,  // scalar field
    const DiffScalar * pS1,  // scalar field
-   const DupConsParam * pP  // threshold >= 
+   const DupConsParam * pP  // threshold >=
 )
 {
-   size_t l, m= 0, n= 0;
+   size_t k=0, l=0, m= 0, n= 0;
    DiffScalar s, t=0;
 
    for (size_t i=0; i<pO->n1F; i++)
    {
       s= pS0[i] + pS1[i];
       t+= s;
-      if (s >= pP->t[1]) { pR[i]= pM[i]; ++n; } 
-      else if (s <= pP->t[0]) { pR[i]= 0x00; ++m; }
+      if ((s >= pP->t[1]) && (0x00 == pR[i])) { pR[i]= pM[i]; ++n; }
+      else if ((s <= pP->t[0]) && (0x00 != pR[i])) { pR[i]= 0x00; ++m; }
    }
-   TRACE("map8DupCons() - sum=%G, +n=%zu, -m=%zu\n", t, n, m);
-   l= constrainMap(pR, pM, pMD, pO);
-   //if (l != n) { REPORT(ERR,"map8DupCons() - %zu %zu\n", l, n); }
-   TRACE("map8DupCons() T:%G,%G -> cons.= %zu\n", pP->t[0], pP->t[1], l);
-   return(n);
+   l= n + m;
+   if (0 != pP->logLvl)
+   {
+      k= (size_t)(pP->logLvl & 0xF) << (pP->logLvl >> 4);
+      if (l >= k)
+      {
+         LOG_CALL("() - sum=%G, +n=%zu, -m=%zu\n", t, n, m);
+      }
+   }
+   if ((l > 0) || (pP->flags & 0x1)) { l= constrainMap(pR, pM, pMD, pO); }
+   return(l);
 } // map8DupCons

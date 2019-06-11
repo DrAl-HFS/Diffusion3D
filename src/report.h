@@ -30,7 +30,7 @@ extern "C" {
 #define WRN1 (NDNT|WRN0)
 #define ERR1 (NDNT|ERR0)
 
-// Upper nybble gives user defined level for flexible masking 
+// Upper nybble gives user defined level for flexible masking
 // bits7..0 = llllffcc : llll=level, ff=flags, cc=category
 #define REPORT_FCID_MASK   0x0F
 #define REPORT_FCID_SHIFT  0
@@ -39,14 +39,18 @@ extern "C" {
 
 // Convenience macros (can be locally/globally undefined)
 #define REPORT(id, fmt, ...) report(id, fmt, __VA_ARGS__)
+#define LOG(fmt, ...)   report(LOG0, fmt, __VA_ARGS__)
 #define TRACE(fmt, ...) report(TRC0, fmt, __VA_ARGS__)
-#define WARN(fmt, ...) report(WRN0, fmt, __VA_ARGS__)
+#define WARN(fmt, ...)  report(WRN0, fmt, __VA_ARGS__)
 #define ERROR(fmt, ...) report(ERR0, fmt, __VA_ARGS__)
-// function call monitoring 
-// The string fmt allows showing actual arg values and result e.g. "(%p,%u) -> %d" 
+// function call monitoring
+// The string fmt allows showing actual arg values and result e.g. "(%p,%u) -> %d"
 // NB: adjacent string concatenation, compiler defined symbol, variadic args
 #define REPORT_CALL(id, fmt, ...)  report(id, "%s"fmt, __func__, __VA_ARGS__)
+#define LOG_CALL(fmt, ...)     report(LOG0, "%s"fmt, __func__, __VA_ARGS__)
 #define TRACE_CALL(fmt, ...)   report(TRC0, "%s"fmt, __func__, __VA_ARGS__)
+#define WARN_CALL(fmt, ...)    report(WRN0, "%s"fmt, __func__, __VA_ARGS__)
+#define ERROR_CALL(fmt, ...)   report(ERR0, "%s"fmt, __func__, __VA_ARGS__)
 
 
 /***/

@@ -50,6 +50,7 @@ typedef struct
 typedef struct
 {
    DiffScalar t[2]; // Hysteresis threshold: <= t[0], >= t[1]
+   U8 flags, logLvl, pad[6];
 } DupConsParam;
 
 
