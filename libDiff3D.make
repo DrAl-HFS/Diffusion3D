@@ -22,6 +22,7 @@ FILES:= $(shell ls -I*Test* -I*.h $(SRC_DIR))
 #FILES:= diff3D.c diff3DUtil.c cluster.c clusterMap.c mapUtil.c util.c
 
 SRC:= $(FILES:%.c=$(SRC_DIR)/%.c)
+HDR:= $(FILES:%.c=$(SRC_DIR)/%.h)
 OBJ:= $(FILES:%.c=$(OBJ_DIR)/%.o)
 
 TARGET:= lib/libDiff3D.so
@@ -46,26 +47,25 @@ opt: $(TARGET)
 dbg: $(TARGET)
 
 
-### Minimal rebuild rules ###
-
+### Deprecated: Minimal rebuild rules - not worth the effort... ###
 # NB - building target directly from multiple sources in one line still results
 # in the object files being created, but no "tidy up" rule will be triggered...
-
 # CAVEAT EMPTOR: it seems that when using header dependancy, 
 # every source file MUST have corresponding header or something breaks...
+#%.o: $(SRC_DIR)/%.c $(HDR_DIR)/%.h
+#	$(CC) $(OPTFLAGS) $(ACCFLAGS) $(DEFINES) $< -c
+#%.o: $(SRC_DIR)/%.cpp $(HDR_DIR)/%.h
+#	$(CXX) $(OPTFLAGS) $(ACCFLAGS) $DEFINES) $< -c
+#$(OBJ_DIR)/%.o : %.o
+#       mv $< $@
+#$(TARGET): $(OBJ)
+#        $(CC) $(OPTFLAGS) $(ACCFLAGS) $(LDFLAGS) $^ -o $@
+###
 
-%.o: $(SRC_DIR)/%.c $(HDR_DIR)/%.h
-	$(CC) $(OPTFLAGS) $(ACCFLAGS) $(DEFINES) $< -c
-
-%.o: $(SRC_DIR)/%.cpp $(HDR_DIR)/%.h
-	$(CXX) $(OPTFLAGS) $(ACCFLAGS) $DEFINES) $< -c
-
-$(OBJ_DIR)/%.o : %.o
-	mv $< $@
- 
-$(TARGET): $(OBJ)
-	$(CC) $(OPTFLAGS) $(ACCFLAGS) $(LDFLAGS) $^ -o $@
-
+# Full build always rule: simple and fast enough (but still need clean up, despite no -c)
+$(TARGET): $(SRC) $(HDR)
+	$(CC) $(OPTFLAGS) $(ACCFLAGS) $(LDFLAGS) $(SRC) -o $@
+	mv *.o $(OBJ_DIR)
 
 ### Phony Targets for odd jobs	###
 .PHONY: clean
