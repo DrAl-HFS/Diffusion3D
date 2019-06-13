@@ -1,24 +1,26 @@
 # -Xc ???
-CC = pgcc -c11
-CXX = pgc++ -std=c++11
-#MAXFLAGS = -O4 -Mautoinline -acc=verystrict -ta=host,multicore,tesla -Minfo=all -mp
-#FAST = -O2 -Mautoinline -acc=verystrict
-ACCFLAGS = -Mautoinline -acc=verystrict -ta=tesla
-LDFLAGS=
-OPTFLAGS= -O4
+CC:= pgcc -c11
+CXX:= pgc++ -std=c++11
+#MAXFLAGS:= -O4 -Mautoinline -acc=verystrict -ta=host,multicore,tesla -Minfo=all -mp
+#FAST:= -O2 -Mautoinline -acc=verystrict
+ACCFLAGS:= -Mautoinline -acc=verystrict -ta=tesla
+LDFLAGS:=
+OPTFLAGS:= -O4
 
-TARGET = dt
-OBJEXT = o
+TARGET:= dt
+OBJEXT:= o
 
-UNAME := $(shell uname -a)
-CCOUT := $(shell $(CC) 2>&1)
+UNAME:= $(shell uname -a)
+CCOUT:= $(shell $(CC) 2>&1)
 
-SRC_DIR=src
-HDR_DIR=$(SRC_DIR)
-OBJ_DIR=obj
+SRC_DIR:= src
+HDR_DIR:= $(SRC_DIR)
+OBJ_DIR:= obj
+COM_DIR:= ../Common/src
 
 SRC:= $(shell ls $(SRC_DIR)/*.c)
-OBJ:= $(SRC:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
+COM_SRC:= $(shell ls $(COM_DIR)/*.c)
+OBJ:= $(SRC:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o) $(COM_SRC:$(COM_DIR)/%.c=$(OBJ_DIR)/%.o)
 
 
 ### Phony Targets for building variants	###
@@ -44,11 +46,14 @@ gnu: clean $(TARGET)
 # CAVEAT EMPTOR: it seems that when using header dependancy, 
 # every source file MUST have corresponding header or something breaks...
 
-%.o: $(SRC_DIR)/%.c $(HDR_DIR)/%.h
+%.o: $(COM_DIR)/%.c $(COM_DIR)/%.h
 	$(CC) $(OPTFLAGS) $(ACCFLAGS) $< -c
 
+%.o: $(SRC_DIR)/%.c $(HDR_DIR)/%.h
+	$(CC) $(OPTFLAGS) $(ACCFLAGS) -I$(COM_DIR) $< -c
+
 %.o: $(SRC_DIR)/%.cpp $(HDR_DIR)/%.h
-	$(CXX) $(OPTFLAGS) $(ACCFLAGS) $< -c
+	$(CXX) $(OPTFLAGS) $(ACCFLAGS) -I$(COM_DIR) $< -c
 
 $(OBJ_DIR)/%.o : %.o
 	mv $< $@
