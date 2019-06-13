@@ -5,8 +5,8 @@
 #ifndef MAP_UTIL_H
 #define MAP_UTIL_H
 
-//#include "util.h"
-#include "report.h"
+#include "util.h"
+//#include "report.h"
 
 #ifdef __cplusplus
 extern "C" {
