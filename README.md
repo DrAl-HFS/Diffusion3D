@@ -10,3 +10,4 @@ Copyright: the project contributors, January-June 2019.
 
 #### Notes
 
+Factored out common code without (yet) creating a GitHub project. Settled for a <src/common> sub folder containing hard links to files. (NB: GitHub does **not** evaluate soft links and hard linking a directory invites disaster.) Neglected to <git mv> files beforehand: history now deleted & lesson learned :(
