@@ -2,9 +2,11 @@
 
 Copyright: the project contributors, January-June 2019.
 
+[Background]: <> (https://github.com/DrAl-HFS/Diffusion3D/blob/master/background.md)
+
 #### [Background](background.md)
 
-[Background]: <> (https://github.com/DrAl-HFS/Diffusion3D/blob/master/background.md)
+#### [Technical](technical.md)
 
 #### Howto
 
