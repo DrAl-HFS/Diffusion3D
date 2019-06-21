@@ -1,4 +1,4 @@
-// report.h - GSRD/DIFF3D
+// report.h - debug/log/error report filtering
 // https://github.com/DrAl-HFS/*.git
 // (c) Project Contributors Jan-June 2019
 

@@ -23,8 +23,8 @@ Bool32 allocMemBuff (MemBuff *pB, const size_t bytes)
    {
       void *p= malloc(bytes);
       if (p)
-      { 
-         if (NULL != pB->p) { printf("WARNING: allocMemBuff() - overwriting %p\n", pB->p);}
+      {
+         if (NULL != pB->p) { WARN_CALL("() - overwriting %p\n", pB->p);}
          pB->p= p; pB->bytes= bytes;
          return(TRUE);
       }
@@ -86,7 +86,7 @@ size_t loadBuff (void * const pB, const char * const path, const size_t bytes)
    {
       r= fread(pB, 1, bytes, hF);
       fclose(hF);
-      if (bytes != r) { printf("WARNING: loadBuff(%s,%zu) - %zu\n", path, bytes, r); }
+      if (bytes != r) { WARN_CALL("(%s,%zu) - %zu\n", path, bytes, r); }
    }
    return(r);
 } // loadBuff
@@ -99,7 +99,7 @@ size_t saveBuff (const void * const pB, const char * const path, const size_t by
    {
       r= fwrite(pB, 1, bytes, hF);
       fclose(hF);
-      if (bytes != r) { printf("WARNING: saveBuff(%s,%zu) - %zu\n", path, bytes, r); }
+      if (bytes != r) { WARN_CALL("(%s,%zu) - %zu\n", path, bytes, r); }
    }
    return(r);
 } // saveBuff
@@ -115,13 +115,13 @@ MBVal readBytesLE (const U8 * const pB, const size_t idx, const U8 nB)
 MBVal writeBytesLE (U8 * const pB, const size_t idx, const U8 nB, const MBVal v)
 {
    U8 s= 0;
-   for (int i=0; i<nB; i++) { pB[idx+i]= v >> s; s+= 8; }   
+   for (int i=0; i<nB; i++) { pB[idx+i]= v >> s; s+= 8; }
    return(v);
 } // writeBytesLE
 
 SMVal deltaT (void)
 {
-   static struct timeval t[2]={0,};
+   static struct timeval t[2]={{0,},};
    static int i= 0;
    SMVal dt;
    GETTIME(t+i);
@@ -160,7 +160,7 @@ U32 statMom1Res1 (StatResD1R2 * const pR, const StatMomD1R2 * const pS, const SM
       r.m= pS->m[1] / pS->m[0];
       ++o;
       if (pS->m[0] != dof)
-      { 
+      {
          //SMVal ess= (pS->m[1] * pS->m[1]) / pS->m[0];
          r.v= ( pS->m[2] - (pS->m[1] * r.m) ) / (pS->m[0] - dof);
          ++o;
@@ -178,10 +178,10 @@ U32 statMom3Res1 (StatResD1R2 r[3], const StatMomD3R2 * const pS, const SMVal do
       for (int i= 0; i < 3; i++) { r[i].m= pS->m1[i] / pS->m0; }
       ++o;
       if (pS->m0 != dof)
-      { 
+      {
          //SMVal ess= (pS->m[1] * pS->m[1]) / pS->m[0];
          for (int i= 0; i < 3; i++)
-         { 
+         {
             r[i].v= ( pS->m2[i] - (pS->m1[i] * r[i].m) ) / (pS->m0 - dof);
          }
          ++o;
@@ -218,7 +218,7 @@ static const U8 n4b8[]=
 };
 //static const U64 n4b4=0x4332322132212110; // c+= 0xF & (n4b4 >> ((u & 0xF)<<2) );
    U32   c=0;
-   
+
    do
    {
       c+= n4b8[ u & 0xF ] + n4b8[ (u >> 4) & 0xF ] + n4b8[ (u >> 8) & 0xF ] + n4b8[ (u >> 12) & 0xF ];
@@ -241,7 +241,11 @@ static const I8 h4b8[]=
    if (0 != u)
    {
       register size_t t;
-      if (0 != (t= (u >> 32))) { h+= 32; u= t; }
+
+      //if (sizeof(t) >= 8) {
+#if __WORDSIZE >= 64
+      if (0 != (t= (u >> 32))) { h+= 32; u= t; } }
+#endif // __WORDSIZE
       if (0 != (t= (u >> 16))) { h+= 16; u= t; }
       if (0 != (t= (u >> 8))) { h+= 8; u= t; }
       if (0 != (t= (u >> 4))) { h+= 4; u= t; }
@@ -265,7 +269,7 @@ extern int strFmtNSMV (char s[], const int maxS, const char *fmt, const SMVal v[
    return(nS);
 } // strFmtNSMV
 
-extern SMVal sumNSMV (const SMVal v[], const size_t n) 
+extern SMVal sumNSMV (const SMVal v[], const size_t n)
 {
    SMVal s=0;
    for (size_t i= 0; i<n; i++) { s+= v[i]; }
@@ -284,10 +288,10 @@ F64 lerpF64 (const F64 x0, const F64 x1, const F64 r) { return(x0 + r * (x1 - x0
 
 U8 bitsValZ (const size_t v)
 {
-   const float a= 1.0 - ( 1.0 / ((size_t)1 << 63) );
-   //float f= log2f(v); 
+   const float a= 1.0 - ( 1.0 / ((size_t)1 << (__WORDSIZE-1)) );
+   //float f= log2f(v);
    //U8 r= f + a;
-   //printf("bitsVal() - log2(%u)=%G -> %G -> %u\n", v, f, f+a, r);
+   //DBG_CALL("() - log2(%u)=%G -> %G -> %u\n", v, f, f+a, r);
    return(log2f(v) + a);
 } // bitsValZ
 
@@ -301,14 +305,14 @@ int utilTest (void)
    int i= 0;
    long l= 0;
    long long ll=0;
-   printf("utilTest() - sizeof: char=%d short=%d int=%d long=%d long long=%d\n",sizeof(c),sizeof(s),sizeof(i),sizeof(l),sizeof(ll));
+   LOG_CALL("() - sizeof: char=%d short=%d int=%d long=%d long long=%d\n",sizeof(c),sizeof(s),sizeof(i),sizeof(l),sizeof(ll));
 #endif
 #if 0
    size_t t=0;
    printf("utilTest() - bit*:\n");
    for (int i=0; i<32; i++)
    {
-      printf("%d 0x%x %d %u %u\n", i, t, bitNumHiZ(t), bitsReqI32(t), bitsReqI32(-t));
+      LOG("%d 0x%x %d %u %u\n", i, t, bitNumHiZ(t), bitsReqI32(t), bitsReqI32(-t));
       t= 1<<i;
    }
 #endif
