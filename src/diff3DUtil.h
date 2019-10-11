@@ -53,6 +53,8 @@ typedef struct
    U8 flags, logLvl, pad[6];
 } DupConsParam;
 
+typedef int Bool32;
+
 
 /***/
 

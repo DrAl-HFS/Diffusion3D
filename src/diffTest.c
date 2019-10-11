@@ -87,6 +87,16 @@ Bool32 getOrg (DataOrg *pDO, const FileInfo *pFI, U8 verbose)
    return(FALSE);
 } // getOrg
 
+void setDefaultDO (DataOrg *pO)
+{
+   if (0 == pO->nDef)
+   {  
+      pO->nDef= 3;
+      pO->def[0]= pO->def[1]= pO->def[2]= 256;
+      pO->elemBytes= 8;
+   }
+} // setDefaultDO
+
 void scanArgs (ArgInfo *pAI, char *v[], const int n, U8 verbose)
 {
    for (int i=0; i<n; i++)
@@ -110,6 +120,7 @@ void scanArgs (ArgInfo *pAI, char *v[], const int n, U8 verbose)
          }
       }
    }
+   if (NULL == pAI->file.name) { setDefaultDO(&(pAI->org)); }
 } // scanArgs
 
 Bool32 init (DiffTestContext *pC, U16 def[3])
@@ -218,6 +229,7 @@ typedef struct
 } Test1Res;
 
 //strExtFmtNSMV(" m=(",")")
+
 
 U32 testAn (Test1Res *pR, const TestParam *pP)
 {
@@ -403,7 +415,7 @@ int main (int argc, char *argv[])
    if (init(&gCtx, gAI.org.def))
    {
       float f=-1;
-      U32 mapID= 1;
+      U32 mapID= 0;
       gMSI.v= 1.0;
 
       if (gAI.file.bytes > 0)
@@ -428,9 +440,9 @@ int main (int argc, char *argv[])
       //initW(gCtx.wPhase[0].w, 0.5, 6, 0); // ***M8***
       //iT= diffProcIsoD3S6M(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), (D3S6IsoWeights*)(gCtx.wPhase), gCtx.pM, 100);
 
-      if ((0 == mapID) && (4 == md.mapElemBytes))
+      if (0 == mapID) // && (4 == md.mapElemBytes))
       {
-         static const U8 nHoods[]={6,14,18,26};
+         static const U8 nHoods[]={6};//,14,18,26};
          compareAnNHI(nHoods, sizeof(nHoods), 20, 100);
       }
       else

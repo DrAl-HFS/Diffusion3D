@@ -433,6 +433,37 @@ U32 diffProcIsoD3S6M8
    return(i);
 } // diffProcIsoD3S6M8
 
+
+#ifdef TEST_MKF
+#include "mkfCUDA.h"
+#endif
+
+int analyse (const DiffScalar *pF, const DiffOrg *pO)
+{
+#ifdef TEST_MKF
+   BMFieldInfo inf;
+   //inf.pS= &(pO->stride);
+   #pragma acc host_data use_device(pF)
+   {
+      const void *p[1]={pF};
+      if (setupFields(&inf, p, 1, &(pO->def.x), sizeof(DiffScalar), 0))
+      {
+         BMOrg bmo;
+         BinMapF64 map;
+         BMPackWord *pW=NULL;
+         size_t *pBPFD=NULL;
+         setBinMapF64(&map, ">", 0);
+         setBMO(&bmo, inf.pD, 0);
+         if (pW= binMapCUDA(pW, &bmo, &inf, &map))
+         {
+            pBPFD= mkfCUDAGetBPFD(pBPFD, &bmo, pW, MKFCU_PROFILE_FAST);
+         }
+      }
+   }
+#endif
+   return(0);
+} // analyse
+
 U32 diffProcIsoD3SxM
 (
    DiffScalar * restrict pR,  // Result field(s)
@@ -466,6 +497,7 @@ U32 diffProcIsoD3SxM
                pF(pR,pS,pO,pW,pM);
                pF(pS,pR,pO,pW,pM);
             }
+            analyse(pS,pO);
          }
       }
       else
@@ -478,6 +510,7 @@ U32 diffProcIsoD3SxM
                pF(pS,pR,pO,pW,pM);
                pF(pR,pS,pO,pW,pM);
             }
+            analyse(pR,pO);
          }
       }
    }
