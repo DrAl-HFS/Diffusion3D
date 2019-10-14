@@ -438,7 +438,7 @@ U32 diffProcIsoD3S6M8
 #include "mkfCUDA.h"
 #endif
 
-int analyse (const DiffScalar *pF, const DiffOrg *pO)
+int analyse (float m[4], const DiffScalar *pF, const DiffOrg *pO)
 {
 #ifdef TEST_MKF
    BMFieldInfo inf;
@@ -451,12 +451,15 @@ int analyse (const DiffScalar *pF, const DiffOrg *pO)
          BMOrg bmo;
          BinMapF64 map;
          BMPackWord *pW=NULL;
-         size_t *pBPFD=NULL;
+         size_t bpfd[MKF_BINS];
          setBinMapF64(&map, ">", 0);
          setBMO(&bmo, inf.pD, 0);
          if (pW= binMapCUDA(pW, &bmo, &inf, &map))
          {
-            pBPFD= mkfCUDAGetBPFD(pBPFD, &bmo, pW, MKFCU_PROFILE_FAST);
+            mkfCUDAGetBPFDH(bpfd, &bmo, pW, MKFCU_PROFILE_FAST);
+            mkfMeasureBPFD(m, bpfd, 3.0 / sumNI(inf.pD, 3), 0);
+            LOG("analyse() - K M S V: %G %G %G %G\n", m[0], m[1], m[2], m[3]);
+            return(1);
          }
       }
    }
@@ -476,6 +479,7 @@ U32 diffProcIsoD3SxM
 )
 {
    DiffProcIsoMapFuncPtr pF=NULL;
+   float m[4];
    U32 i= 0;
    switch(nHood)
    {
@@ -497,7 +501,7 @@ U32 diffProcIsoD3SxM
                pF(pR,pS,pO,pW,pM);
                pF(pS,pR,pO,pW,pM);
             }
-            analyse(pS,pO);
+            analyse(m,pS,pO);
          }
       }
       else
@@ -510,7 +514,7 @@ U32 diffProcIsoD3SxM
                pF(pS,pR,pO,pW,pM);
                pF(pR,pS,pO,pW,pM);
             }
-            analyse(pR,pO);
+            analyse(m,pR,pO);
          }
       }
    }
