@@ -434,13 +434,13 @@ U32 diffProcIsoD3S6M8
 } // diffProcIsoD3S6M8
 
 
-#ifdef DIFF_FMA
+#ifdef DIFF_FUMEAN
 
 #include "mkfCUDA.h"
 
 typedef struct
 {
-   int iterMask, iterCmp;
+   int iterNext, iterStep;
    BMFieldInfo inf;
    BMOrg bmo;
    BinMapF64 map;
@@ -482,40 +482,31 @@ static Bool32 initFMACtx (FMACtx *pC, const DiffScalar *pF, const DiffOrg *pO)
 static Bool32 analyse (const DiffScalar *pF, int i) //, const DiffOrg *pO)
 {
    FMACtx *pC= &gAnCtx;
-   if (pC->iterCmp == ( i & pC->iterMask )) // initAnCtx(pC, pF, pO))
+   if (pC->iterNext == i) // initAnCtx(pC, pF, pO))
    {
+      KernInfo ki;
+      pC->iterNext+= pC->iterStep;
       #pragma acc host_data use_device(pF)
       { pC->pF[0]= pF; }
-      if (pC->pDevW= binMapCUDA(pC->pDevW, &(pC->bmo), &(pC->inf), &(pC->map)))
+      if (pC->pDevW= binMapCUDA(&ki, pC->pDevW, &(pC->bmo), &(pC->inf), &(pC->map)))
       {
          FMAPkt *pP= nextPkt(pC);
-
-         char s[16]; s[13]= 0;
-
-         mkfCUDAGetBPFDH(pC->bpfd, &(pC->bmo), pC->pDevW, MKFCU_PROFILE_FAST);
          
+         mkfCUDAGetBPFDH(&ki, pC->bpfd, &(pC->bmo), pC->pDevW, MKFCU_PROFILE_FAST);
+         
+         mkfRefMeasureBPFD(pP->m, pC->bpfd, pC->fScale);
+
          pP->i= i;
-         mkfMeasureBPFD(pP->m, s, pC->bpfd, pC->fScale, 4);
+         pP->dt[0]= 1E-3 * ki.dtms[0];
+         pP->dt[1]= 1E-3 * ki.dtms[1];
          return(TRUE);
       }
    }
    return(FALSE);
 } // analyse
 
-void diffSetFMAIvlPO2 (int ivl)
-{
-   FMACtx *pC= &gAnCtx;
-   if (ivl < 0) { pC->iterMask= pC->iterCmp= -1; }
-   else
-   {
-      pC->iterCmp= 0;
-      if (ivl > 0)
-      {
-         int b= bitNumHiZ(ivl);
-         pC->iterMask=  BIT_MASK(b);
-      } else { pC->iterMask= 0; }
-   }
-} // diffSetFMAIvlPO2
+void diffSetFMAIvlPO2 (int ivl) { FMACtx *pC= &gAnCtx; pC->iterStep= ivl; }
+void diffResetIter (int i) { FMACtx *pC= &gAnCtx; pC->iterNext= i; }
 
 Bool32 diffSetupFMA (const int maxSamples, const char relOpr[], DiffScalar t, const DiffOrg *pO)
 {
@@ -546,16 +537,21 @@ int diffGetFMA (FMAPkt **ppAP, Bool32 reset)
    return(nP);
 } // diffGetFMA
 
-#else // DIFF_FMA
+void diffTeardownFMA (void)
+{  // release CUDA lazy alloc buffers
+   mkfCUDACleanup();
+   binMapCUDACleanup();
+} // diffTeardownFMA
+
+#else // DIFF_FUMEAN
 
 static Bool32 analyse (float m[4], const DiffScalar *pF, const DiffOrg *pO) { return(FALSE); }
-Bool32 setupAnalysis (const int maxSamples, const int intervalBits, const char relOpr[], DiffScalar t, const DiffOrg *pO) { return(FALSE); }
-int getAnalysis (AnPkt **ppAP, int reset) { return(0); }
 void diffSetFMAIvlPO2 (int ivl) { ; }
+void diffResetIter (int i) { ; }
+void diffTeardownFMA (void) { ; }
 
-#endif // DIFF_FMA
+#endif // DIFF_FUMEAN
 
-void teardownAnalysis (void) {;}
 
 U32 diffProcIsoD3SxM
 (
@@ -581,6 +577,7 @@ U32 diffProcIsoD3SxM
    if (pF)
    #pragma acc data present_or_copyin( pO[:1], pW[:pO->nPhase], pM[:pO->n1F] )
    {
+      diffResetIter(0);
       if (0 == (nI & 1))
       {
          #pragma acc data present_or_create( pR[:pO->n1B] ) copy( pS[:pO->n1B] )

@@ -303,7 +303,7 @@ void compareAnNHI (const U8 nHoods[], const U8 nNH, const U32 step, const U32 ma
    Test1Res  res[4][5], *pR;
    U32        iT, iN, iA;
 
-#ifdef  DIFF_FMA
+#ifdef  DIFF_FUMEAN
    FMAPkt *pP; int nP;
    diffSetupFMA(max, ">", 0, &(gCtx.org));
 #endif
@@ -317,25 +317,25 @@ void compareAnNHI (const U8 nHoods[], const U8 nNH, const U32 step, const U32 ma
       initIsoW(gCtx.wPhase[0].w, param.rD, param.nHood, 0);
       diffSetFMAIvlPO2(-1);
       diffProcIsoD3SxM(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), gCtx.wPhase, gCtx.pM, 2, param.nHood);
-      //diffSetFMAIvlPO2(0);
+      diffSetFMAIvlPO2(10);
       printf("diffProc.. warmup OK\n");
       for (int i=step; i<=max; i+= step)
       {
          param.iter=  i;
          iT= testAn(pR, &param);
 
-#ifdef  DIFF_FMA
+#ifdef  DIFF_FUMEAN
          nP= diffGetFMA(&pP, TRUE);
          if (nP > 0)
          {
             LOG("getAnalysis() - %d %p (I:%u)\n", nP, pP, param.iter);
             for (int iP= 0; iP < nP; iP++)
             {
-               LOG("\ti%d %G %G %G %G\n", pP->i, pP->m[0], pP->m[1], pP->m[2], pP->m[3]);
+               LOG("\ti%d %G %G %G %G\t%G %G\n", pP->i, pP->m[0], pP->m[1], pP->m[2], pP->m[3], pP->dt[0], pP->dt[1]);
                pP++;
             }
          }
-#endif // DIFF_FMA
+#endif // DIFF_FUMEAN
 
          if (iT >= max)
          {
@@ -365,7 +365,7 @@ void compareAnNHI (const U8 nHoods[], const U8 nNH, const U32 step, const U32 ma
          pR++;
       }
    }
-   teardownAnalysis();
+   diffTeardownFMA();
 } // compareAnNHI
 
 

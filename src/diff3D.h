@@ -7,7 +7,7 @@
 
 #include "mapUtil.h"
 
-#define DIFF_FMA
+#define DIFF_FUMEAN  // FUnctional MEasure ANalysis
 
 
 #ifdef __cplusplus
@@ -103,12 +103,13 @@ extern void diffSet6To26 (Stride s26[]);
 extern U32 getBoundaryM26 (Index x, Index y, Index z, const MMV3I *pMM);
 extern U32 getBoundaryM26V (Index x, Index y, Index z, const MMV3I *pMM); // verbose (debug) version
 
-#ifdef  DIFF_FMA
+#ifdef  DIFF_FUMEAN
 // Functional Measure Analysis data "packet"
 typedef struct
 {
    int i;   // iteration number
    float m[4]; // MKF measures
+   float dt[2];
 } FMAPkt;
 
 extern Bool32 diffSetupFMA
@@ -121,13 +122,13 @@ extern Bool32 diffSetupFMA
 
 extern int diffGetFMA (FMAPkt **ppAP, Bool32 reset);
 
-extern void diffTeardownFMA (void);
-
-#endif  // DIFF_FMA
+#endif  // DIFF_FUMEAN
 
 // Set analysis interval to power of two not exceeding parameter
 // <0 -> disable
 extern void diffSetFMAIvlPO2 (int ivl);
+extern void diffTeardownFMA (void);
+
 
 extern void test (const DiffOrg * pO);
 
