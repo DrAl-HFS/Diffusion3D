@@ -7,6 +7,9 @@
 
 #include "mapUtil.h"
 
+#define DIFF_FMA
+
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -99,6 +102,32 @@ extern void diffSet6To26 (Stride s26[]);
 // Boundary check coordinates against the specified min-max volume and return flag mask of permissible memory accesses
 extern U32 getBoundaryM26 (Index x, Index y, Index z, const MMV3I *pMM);
 extern U32 getBoundaryM26V (Index x, Index y, Index z, const MMV3I *pMM); // verbose (debug) version
+
+#ifdef  DIFF_FMA
+// Functional Measure Analysis data "packet"
+typedef struct
+{
+   int i;   // iteration number
+   float m[4]; // MKF measures
+} FMAPkt;
+
+extern Bool32 diffSetupFMA
+(
+   const int      maxSamples, 
+   const char     relOpr[], 
+   DiffScalar     t, 
+   const DiffOrg *pO
+);
+
+extern int diffGetFMA (FMAPkt **ppAP, Bool32 reset);
+
+extern void diffTeardownFMA (void);
+
+#endif  // DIFF_FMA
+
+// Set analysis interval to power of two not exceeding parameter
+// <0 -> disable
+extern void diffSetFMAIvlPO2 (int ivl);
 
 extern void test (const DiffOrg * pO);
 

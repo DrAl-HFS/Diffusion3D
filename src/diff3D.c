@@ -434,38 +434,128 @@ U32 diffProcIsoD3S6M8
 } // diffProcIsoD3S6M8
 
 
-#ifdef TEST_MKF
-#include "mkfCUDA.h"
-#endif
+#ifdef DIFF_FMA
 
-int analyse (float m[4], const DiffScalar *pF, const DiffOrg *pO)
+#include "mkfCUDA.h"
+
+typedef struct
 {
-#ifdef TEST_MKF
+   int iterMask, iterCmp;
    BMFieldInfo inf;
-   //inf.pS= &(pO->stride);
-   #pragma acc host_data use_device(pF)
+   BMOrg bmo;
+   BinMapF64 map;
+   BMPackWord *pDevW;
+   const void *pF[1];
+   size_t bpfd[MKF_BINS]; // CAVEAT - pinned or not ?
+   FMAPkt defP, *pP;
+   int maxP, nP;
+   float fScale;
+} FMACtx;
+
+FMACtx gAnCtx={ -1,-1, 0, };
+
+static FMAPkt *nextPkt (FMACtx *pC)
+{
+   if (pC->pP && (pC->nP < pC->maxP))
    {
-      const void *p[1]={pF};
-      if (setupFields(&inf, p, 1, &(pO->def.x), sizeof(DiffScalar), 0))
+      return(pC->pP + pC->nP++); 
+   }
+   return( &(pC->defP) );
+} // nextPkt
+
+static Bool32 initFMACtx (FMACtx *pC, const DiffScalar *pF, const DiffOrg *pO)
+{
+   #pragma acc host_data use_device(pF)
+   { pC->pF[0]= pF; }
+   if (setupFields(&(pC->inf), pC->pF, 1, &(pO->def.x), sizeof(DiffScalar), 0) &&
+         setBMO(&(pC->bmo), pC->inf.pD, 0))
+   {
+      setBinMapF64(&(pC->map), ">", 0);
+      pC->fScale= 3.0 / sumNI(pC->inf.pD, 3);
+      //pC->pW= NULL; // bmcReset(pC->pW); ???
+      return(TRUE);
+   }
+   //else
+   return(FALSE);
+} // initFMACtx
+
+static Bool32 analyse (const DiffScalar *pF, int i) //, const DiffOrg *pO)
+{
+   FMACtx *pC= &gAnCtx;
+   if (pC->iterCmp == ( i & pC->iterMask )) // initAnCtx(pC, pF, pO))
+   {
+      #pragma acc host_data use_device(pF)
+      { pC->pF[0]= pF; }
+      if (pC->pDevW= binMapCUDA(pC->pDevW, &(pC->bmo), &(pC->inf), &(pC->map)))
       {
-         BMOrg bmo;
-         BinMapF64 map;
-         BMPackWord *pW=NULL;
-         size_t bpfd[MKF_BINS];
-         setBinMapF64(&map, ">", 0);
-         setBMO(&bmo, inf.pD, 0);
-         if (pW= binMapCUDA(pW, &bmo, &inf, &map))
-         {
-            mkfCUDAGetBPFDH(bpfd, &bmo, pW, MKFCU_PROFILE_FAST);
-            mkfMeasureBPFD(m, bpfd, 3.0 / sumNI(inf.pD, 3), 0);
-            LOG("analyse() - K M S V: %G %G %G %G\n", m[0], m[1], m[2], m[3]);
-            return(1);
-         }
+         FMAPkt *pP= nextPkt(pC);
+
+         char s[16]; s[13]= 0;
+
+         mkfCUDAGetBPFDH(pC->bpfd, &(pC->bmo), pC->pDevW, MKFCU_PROFILE_FAST);
+         
+         pP->i= i;
+         mkfMeasureBPFD(pP->m, s, pC->bpfd, pC->fScale, 4);
+         return(TRUE);
       }
    }
-#endif
-   return(0);
+   return(FALSE);
 } // analyse
+
+void diffSetFMAIvlPO2 (int ivl)
+{
+   FMACtx *pC= &gAnCtx;
+   if (ivl < 0) { pC->iterMask= pC->iterCmp= -1; }
+   else
+   {
+      pC->iterCmp= 0;
+      if (ivl > 0)
+      {
+         int b= bitNumHiZ(ivl);
+         pC->iterMask=  BIT_MASK(b);
+      } else { pC->iterMask= 0; }
+   }
+} // diffSetFMAIvlPO2
+
+Bool32 diffSetupFMA (const int maxSamples, const char relOpr[], DiffScalar t, const DiffOrg *pO)
+{
+   FMACtx *pC= &gAnCtx;
+   if (pO)
+   {
+      if (!initFMACtx(pC, NULL, pO)) { return(FALSE); }
+   }
+   if ((NULL == pC->pP) && (maxSamples > 0) && (0 == pC->maxP))
+   {
+      pC->pP= malloc( maxSamples * sizeof(*(pC->pP)) );
+      if (pC->pP) { pC->maxP= maxSamples; }
+   }
+   if (pC->pP)
+   {
+      diffSetFMAIvlPO2(-1);
+      return(NULL != setBinMapF64(&(pC->map), relOpr, t));
+   }
+   return(FALSE);
+} // diffSetupFMA
+
+int diffGetFMA (FMAPkt **ppAP, Bool32 reset)
+{ 
+   FMACtx *pC= &gAnCtx;
+   int nP= pC->nP;
+   if (pC->pP && ppAP) { *ppAP= pC->pP; }
+   if (reset) { pC->nP= 0; }
+   return(nP);
+} // diffGetFMA
+
+#else // DIFF_FMA
+
+static Bool32 analyse (float m[4], const DiffScalar *pF, const DiffOrg *pO) { return(FALSE); }
+Bool32 setupAnalysis (const int maxSamples, const int intervalBits, const char relOpr[], DiffScalar t, const DiffOrg *pO) { return(FALSE); }
+int getAnalysis (AnPkt **ppAP, int reset) { return(0); }
+void diffSetFMAIvlPO2 (int ivl) { ; }
+
+#endif // DIFF_FMA
+
+void teardownAnalysis (void) {;}
 
 U32 diffProcIsoD3SxM
 (
@@ -479,7 +569,6 @@ U32 diffProcIsoD3SxM
 )
 {
    DiffProcIsoMapFuncPtr pF=NULL;
-   float m[4];
    U32 i= 0;
    switch(nHood)
    {
@@ -496,25 +585,30 @@ U32 diffProcIsoD3SxM
       {
          #pragma acc data present_or_create( pR[:pO->n1B] ) copy( pS[:pO->n1B] )
          {
+            analyse(pS,0);
             for (i= 0; i < nI; i+=2 )
             {
                pF(pR,pS,pO,pW,pM);
+               analyse(pR,i+1);
                pF(pS,pR,pO,pW,pM);
+               analyse(pS,i+2);
             }
-            analyse(m,pS,pO);
          }
       }
       else
       {
          #pragma acc data present_or_create( pR[:pO->n1B] ) copyin( pS[:pO->n1B] ) copyout( pR[:pO->n1B] )
          {
+            analyse(pS,0);
             pF(pR,pS,pO,pW,pM);
+            analyse(pR,1);
             for (i= 1; i < nI; i+= 2 )
             {
                pF(pS,pR,pO,pW,pM);
+               analyse(pS,i+1);
                pF(pR,pS,pO,pW,pM);
+               analyse(pR,i+2);
             }
-            analyse(m,pR,pO);
          }
       }
    }

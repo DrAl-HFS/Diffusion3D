@@ -299,9 +299,14 @@ void save (const char *basePath, const char *baseName, const DiffScalar *pS, con
 
 void compareAnNHI (const U8 nHoods[], const U8 nNH, const U32 step, const U32 max)
 {
-   TestParam   param;
-   Test1Res    res[4][5], *pR;
+   TestParam param;
+   Test1Res  res[4][5], *pR;
    U32        iT, iN, iA;
+
+#ifdef  DIFF_FMA
+   FMAPkt *pP; int nP;
+   diffSetupFMA(max, ">", 0, &(gCtx.org));
+#endif
 
    for (U8 h=0; h<nNH; h++)
    {
@@ -310,12 +315,28 @@ void compareAnNHI (const U8 nHoods[], const U8 nNH, const U32 step, const U32 ma
       param.rD=    0.5;
       // warm-up (field not initialised)
       initIsoW(gCtx.wPhase[0].w, param.rD, param.nHood, 0);
+      diffSetFMAIvlPO2(-1);
       diffProcIsoD3SxM(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), gCtx.wPhase, gCtx.pM, 2, param.nHood);
+      //diffSetFMAIvlPO2(0);
       printf("diffProc.. warmup OK\n");
       for (int i=step; i<=max; i+= step)
       {
          param.iter=  i;
          iT= testAn(pR, &param);
+
+#ifdef  DIFF_FMA
+         nP= diffGetFMA(&pP, TRUE);
+         if (nP > 0)
+         {
+            LOG("getAnalysis() - %d %p (I:%u)\n", nP, pP, param.iter);
+            for (int iP= 0; iP < nP; iP++)
+            {
+               LOG("\ti%d %G %G %G %G\n", pP->i, pP->m[0], pP->m[1], pP->m[2], pP->m[3]);
+               pP++;
+            }
+         }
+#endif // DIFF_FMA
+
          if (iT >= max)
          {
             const Index zSlice= gCtx.org.def.z / 2;
@@ -344,6 +365,7 @@ void compareAnNHI (const U8 nHoods[], const U8 nNH, const U32 step, const U32 ma
          pR++;
       }
    }
+   teardownAnalysis();
 } // compareAnNHI
 
 
