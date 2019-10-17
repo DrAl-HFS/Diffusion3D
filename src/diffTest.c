@@ -218,20 +218,109 @@ void dumpSMR (const DiffScalar * pS, const D3MapElem * pM, const V3I *pC, int a)
 
 typedef struct
 {
-   U32 nHood, iter;
+   U32 nHood, iter, mIvl, samples;
    DiffScalar  rD;
 } TestParam;
 
-typedef struct
+typedef struct // Analytic Comparison
 {
    SMVal          tProc;
    SearchResult  sr;
-} Test1Res;
+} ACTestRes;
+
+#define PSM_ID_PLAIN  (0)
+#define PSM_ID_HOST   (1)
+#define PSM_ID_CUDA   (2)
+#define PSM_ID_KERN   (3)
+#define PSM_NCAT  (4)
+typedef struct // Performance
+{
+   StatMomD1R2 sm[PSM_NCAT];
+} PerfTestRes;
+
+#include "hostFMA.h"
 
 //strExtFmtNSMV(" m=(",")")
+void testPerf (PerfTestRes *pR, const TestParam *pP)
+{
+   HostFMA  hostFMA={0};
+   U32 iT=0, iN= 0, iA= 0, maxM;
+   float dt;
 
+   if (initIsoW(gCtx.wPhase[0].w, pP->rD, pP->nHood, 0) > 0)
+   {
+      memset(pR, 0, sizeof(*pR));
+      maxM= 1 + (pP->iter / MAX(1,pP->mIvl));
 
-U32 testAn (Test1Res *pR, const TestParam *pP)
+      // important to warm up
+      initFieldVCM(gCtx.pSR[0], &(gCtx.org), NULL, NULL, &gMSI);
+      diffProcIsoD3SxM(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), gCtx.wPhase, gCtx.pM, 10, pP->nHood);
+
+      if (hostSetupFMA(&hostFMA, ">", 0, &(gCtx.org)))
+      {
+         for (int iS=0; iS<pP->samples; iS++)
+         {
+            iT= 0;
+            initFieldVCM(gCtx.pSR[0], &(gCtx.org), NULL, NULL, &gMSI);
+            deltaT();
+            while (iT < pP->iter)
+            {
+               U32 iM, iR= pP->iter - iT;
+               iM= MIN(pP->mIvl, iR);
+               iM= MAX(1, iM);
+               iR= iT & 0x1;
+               iT+= diffProcIsoD3SxM(gCtx.pSR[iR^0x1], gCtx.pSR[iR], &(gCtx.org), gCtx.wPhase, gCtx.pM, iM, pP->nHood);
+               iR= iT & 0x1;
+               hostAnalyse(&hostFMA, gCtx.pSR[iR]);
+            }
+            dt= deltaT();
+            statMom1Add(pR->sm+PSM_ID_HOST, dt);
+         }
+         hostTeardownFMA(&hostFMA);
+      }
+
+#ifdef  DIFF_FUMEAN
+      if (diffSetupFMA(maxM, ">", 0, &(gCtx.org)))
+      {
+
+         for (int iS=0; iS<pP->samples; iS++)
+         {
+            initFieldVCM(gCtx.pSR[0], &(gCtx.org), NULL, NULL, &gMSI);
+            deltaT();
+            iT= diffProcIsoD3SxM(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), gCtx.wPhase, gCtx.pM, pP->iter, pP->nHood);
+            dt= deltaT();
+            statMom1Add(pR->sm+PSM_ID_CUDA, dt);
+
+            FMAPkt *pK; int nK;
+            nK= diffGetFMA(&pK, TRUE);
+            if (nK > 0)
+            {
+               LOG("\ti%d %G %G %G %G\t%G %G\n", pK->i, pK->m[0], pK->m[1], pK->m[2], pK->m[3], pK->dt[0], pK->dt[1]);
+               dt= 0;
+               for (int iK= 0; iK < nK; iK++)
+               {
+                  dt+= pK->dt[0] + pK->dt[1];
+                  pK++;
+               }
+               statMom1Add(pR->sm+PSM_ID_KERN, dt);
+            }
+         }
+         diffTeardownFMA();
+      }
+#endif // DIFF_FUMEAN
+
+      for (int iS=0; iS<pP->samples; iS++)
+      {
+         initFieldVCM(gCtx.pSR[0], &(gCtx.org), NULL, NULL, &gMSI);
+         deltaT();
+         iT= diffProcIsoD3SxM(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), gCtx.wPhase, gCtx.pM, pP->iter, pP->nHood);
+         dt= deltaT();
+         statMom1Add(pR->sm+PSM_ID_PLAIN, dt);
+      }
+   }
+} // testPerf
+
+U32 testAn (ACTestRes *pR, const TestParam *pP)
 {
    U32 iT=0, iN= 0, iA= 0;
 
@@ -300,11 +389,11 @@ void save (const char *basePath, const char *baseName, const DiffScalar *pS, con
 void compareAnNHI (const U8 nHoods[], const U8 nNH, const U32 step, const U32 max)
 {
    TestParam param;
-   Test1Res  res[4][5], *pR;
+   ACTestRes  res[4][5], *pR;
    U32        iT, iN, iA;
 
 #ifdef  DIFF_FUMEAN
-   FMAPkt *pP; int nP;
+   FMAPkt *pK; int nK;
    diffSetupFMA(max, ">", 0, &(gCtx.org));
 #endif
 
@@ -325,14 +414,14 @@ void compareAnNHI (const U8 nHoods[], const U8 nNH, const U32 step, const U32 ma
          iT= testAn(pR, &param);
 
 #ifdef  DIFF_FUMEAN
-         nP= diffGetFMA(&pP, TRUE);
-         if (nP > 0)
+         nK= diffGetFMA(&pK, TRUE);
+         if (nK > 0)
          {
-            LOG("getAnalysis() - %d %p (I:%u)\n", nP, pP, param.iter);
-            for (int iP= 0; iP < nP; iP++)
+            LOG("getAnalysis() - %d %p (I:%u)\n", nK, pK, param.iter);
+            for (int iK= 0; iK < nK; iK++)
             {
-               LOG("\ti%d %G %G %G %G\t%G %G\n", pP->i, pP->m[0], pP->m[1], pP->m[2], pP->m[3], pP->dt[0], pP->dt[1]);
-               pP++;
+               LOG("\ti%d %G %G %G %G\t%G %G\n", pK->i, pK->m[0], pK->m[1], pK->m[2], pK->m[3], pK->dt[0], pK->dt[1]);
+               pK++;
             }
          }
 #endif // DIFF_FUMEAN
@@ -464,12 +553,31 @@ int main (int argc, char *argv[])
 
       if (0 == mapID) // && (4 == md.mapElemBytes))
       {
+#if 1
+         TestParam   param;
+         PerfTestRes res;
+         StatResD1R2 sr;
+         param.nHood= 6;
+         param.iter=  100;
+         param.rD=    0.5;
+         param.mIvl=  10;
+         param.samples= 3;
+         testPerf(&res, &param);
+         for (int iC= 0; iC<PSM_NCAT; iC++)
+         {
+            if (statMom1Res1(&sr, res.sm+iC, 1) > 0)
+            {
+               report(OUT,"%d:\t%G\t%G\n", iC, sr.m, sr.v);
+            }
+         }
+#else
          static const U8 nHoods[]={6};//,14,18,26};
          compareAnNHI(nHoods, sizeof(nHoods), 20, 100);
+#endif
       }
       else
       {
-         TestParam  param;
+         TestParam  param={0,};
          U32        iT=0, iN=0;
          RedRes    rr;
 

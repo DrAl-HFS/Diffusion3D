@@ -7,8 +7,9 @@
 
 #include "mapUtil.h"
 
+#ifndef DIFF_FUMEAN
 #define DIFF_FUMEAN  // FUnctional MEasure ANalysis
-
+#endif
 
 #ifdef __cplusplus
 extern "C" {
