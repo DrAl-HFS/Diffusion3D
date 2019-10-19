@@ -3,7 +3,8 @@ CC := pgcc -c11
 CXX := pgc++ -std=c++11
 #MAXFLAGS := -O4 -Mautoinline -acc=verystrict -ta=host,multicore,tesla -Minfo=all -mp
 #FAST := -O2 -Mautoinline -acc=verystrict
-ACCFLAGS := -Mautoinline -acc=verystrict -ta=tesla
+ACCFLAGS := -Mautoinline -acc=verystrict -ta=multicore,tesla
+#ACCFLAGS := -Mautoinline -acc=verystrict -ta=tesla
 LDFLAGS :=
 OPTFLAGS := -O4
 
@@ -17,12 +18,15 @@ SRC_DIR := src
 HDR_DIR := $(SRC_DIR)
 OBJ_DIR := obj
 COM_DIR := ../Common/src
+MKF_DIR := ../MKF/src
 
 SRC := $(shell ls $(SRC_DIR)/*.c)
 COM_SRC := $(shell ls $(COM_DIR)/*.c)
-OBJ := $(SRC:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o) $(COM_SRC:$(COM_DIR)/%.c=$(OBJ_DIR)/%.o)
+MKF_SRC := $(shell ls $(MKF_DIR)/*ACC.c)
+#$(MKF_DIR)/mkfACC.c $(MKF_DIR)/binMapACC.c 
+OBJ := $(SRC:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o) $(COM_SRC:$(COM_DIR)/%.c=$(OBJ_DIR)/%.o) $(MKF_SRC:$(MKF_DIR)/%.c=$(OBJ_DIR)/%.o)
 
-MKF_DEFS := -DTEST_MKF -I../MKF/src 
+MKF_DEFS := -DDIFF_FUMEAN -I../MKF/src
 MKF_LIBS := ../MKF/libMKF.so
 
 ### Phony Targets for building variants	###
@@ -50,6 +54,9 @@ gnu: clean $(TARGET)
 
 %.o : $(COM_DIR)/%.c $(COM_DIR)/%.h
 	$(CC) $(OPTFLAGS) $(ACCFLAGS) $< -c
+
+%.o : $(MKF_DIR)/%.c $(MKF_DIR)/%.h
+	$(CC) $(OPTFLAGS) $(ACCFLAGS) -I$(COM_DIR) $< -c
 
 %.o : $(SRC_DIR)/%.c $(HDR_DIR)/%.h
 	$(CC) $(OPTFLAGS) $(ACCFLAGS) -I$(COM_DIR) $(MKF_DEFS) $< -c
