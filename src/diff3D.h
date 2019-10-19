@@ -104,7 +104,7 @@ extern void diffSet6To26 (Stride s26[]);
 extern U32 getBoundaryM26 (Index x, Index y, Index z, const MMV3I *pMM);
 extern U32 getBoundaryM26V (Index x, Index y, Index z, const MMV3I *pMM); // verbose (debug) version
 
-#ifdef  DIFF_FUMEAN
+#ifdef  DIFF_FUMEAN  // DISPLACE to [diffFMA] ?
 // Functional Measure Analysis data "packet"
 typedef struct
 {
@@ -127,7 +127,7 @@ extern int diffGetFMA (FMAPkt **ppAP, Bool32 reset);
 
 // Set analysis interval to power of two not exceeding parameter
 // <0 -> disable
-extern void diffSetFMAIvlPO2 (int ivl);
+extern void diffSetIntervalFMA (int ivl);
 extern void diffTeardownFMA (void);
 
 

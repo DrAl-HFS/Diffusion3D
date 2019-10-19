@@ -505,7 +505,11 @@ static Bool32 analyse (const DiffScalar *pF, int i) //, const DiffOrg *pO)
    return(FALSE);
 } // analyse
 
-void diffSetFMAIvlPO2 (int ivl) { FMACtx *pC= &gAnCtx; pC->iterStep= ivl; }
+void diffSetIntervalFMA (int ivl)
+{  FMACtx *pC= &gAnCtx; 
+   if (ivl < 0) { pC->iterStep= pC->iterNext= -1; }
+   else { pC->iterStep= ivl; }
+} // diffSetFMAIvlPO2
 void diffResetIter (int i) { FMACtx *pC= &gAnCtx; pC->iterNext= i; }
 
 Bool32 diffSetupFMA (const int maxSamples, const char relOpr[], DiffScalar t, const DiffOrg *pO)
@@ -522,7 +526,7 @@ Bool32 diffSetupFMA (const int maxSamples, const char relOpr[], DiffScalar t, co
    }
    if (pC->pP)
    {
-      diffSetFMAIvlPO2(-1);
+      diffSetIntervalFMA(-1); // disable
       return(NULL != setBinMapF64(&(pC->map), relOpr, t));
    }
    return(FALSE);
@@ -539,14 +543,17 @@ int diffGetFMA (FMAPkt **ppAP, Bool32 reset)
 
 void diffTeardownFMA (void)
 {  // release CUDA lazy alloc buffers
+   FMACtx *pC= &gAnCtx;
    mkfCUDACleanup();
    binMapCUDACleanup();
+   memset(pC, 0, sizeof(*pC));
+   diffSetIntervalFMA(-1); // disable
 } // diffTeardownFMA
 
 #else // DIFF_FUMEAN
 
 static Bool32 analyse (float m[4], const DiffScalar *pF, const DiffOrg *pO) { return(FALSE); }
-void diffSetFMAIvlPO2 (int ivl) { ; }
+void diffSetIntervalFMA (int ivl) { ; }
 void diffResetIter (int i) { ; }
 void diffTeardownFMA (void) { ; }
 
