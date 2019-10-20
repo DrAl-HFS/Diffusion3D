@@ -446,7 +446,7 @@ typedef struct
    BinMapF64 map;
    BMPackWord *pDevW;
    const void *pF[1];
-   size_t bpfd[MKF_BINS]; // CAVEAT - pinned or not ?
+   size_t bpfd[MKF_BINS]; // CAVEAT - presumably unpinned, therefore slow ?
    FMAPkt defP, *pP;
    int maxP, nP;
    float fScale;
@@ -491,15 +491,18 @@ static Bool32 analyse (const DiffScalar *pF, int i) //, const DiffOrg *pO)
       if (pC->pDevW= binMapCUDA(&ki, pC->pDevW, &(pC->bmo), &(pC->inf), &(pC->map)))
       {
          FMAPkt *pP= nextPkt(pC);
+         const size_t *pBPFD=NULL; //
          
-         mkfCUDAGetBPFDH(&ki, pC->bpfd, &(pC->bmo), pC->pDevW, MKFCU_PROFILE_FAST);
-         
-         mkfRefMeasureBPFD(pP->m, pC->bpfd, pC->fScale);
+         pBPFD= mkfCUDAGetBPFDH(&ki, NULL, &(pC->bmo), pC->pDevW, MKFCU_PROFILE_FAST);
+         if (pBPFD)
+         {
+            mkfRefMeasureBPFD(pP->m, pBPFD, pC->fScale);
 
-         pP->i= i;
-         pP->dt[0]= 1E-3 * ki.dtms[0];
-         pP->dt[1]= 1E-3 * ki.dtms[1];
-         return(TRUE);
+            pP->i= i;
+            pP->dt[0]= 1E-3 * ki.dtms[0];
+            pP->dt[1]= 1E-3 * ki.dtms[1];
+            return(TRUE);
+         }
       }
    }
    return(FALSE);
@@ -510,7 +513,7 @@ void diffSetIntervalFMA (int ivl)
    if (ivl < 0) { pC->iterStep= pC->iterNext= -1; }
    else { pC->iterStep= ivl; }
 } // diffSetFMAIvlPO2
-void diffResetIter (int i) { FMACtx *pC= &gAnCtx; pC->iterNext= i; }
+void diffResetIter (int i) { FMACtx *pC= &gAnCtx; pC->iterNext= i * pC->iterStep; }
 
 Bool32 diffSetupFMA (const int maxSamples, const char relOpr[], DiffScalar t, const DiffOrg *pO)
 {
@@ -584,12 +587,12 @@ U32 diffProcIsoD3SxM
    if (pF)
    #pragma acc data present_or_copyin( pO[:1], pW[:pO->nPhase], pM[:pO->n1F] )
    {
-      diffResetIter(0);
+      diffResetIter(1);
       if (0 == (nI & 1))
       {
          #pragma acc data present_or_create( pR[:pO->n1B] ) copy( pS[:pO->n1B] )
          {
-            analyse(pS,0);
+            //analyse(pS,0);
             for (i= 0; i < nI; i+=2 )
             {
                pF(pR,pS,pO,pW,pM);
@@ -603,7 +606,7 @@ U32 diffProcIsoD3SxM
       {
          #pragma acc data present_or_create( pR[:pO->n1B] ) copyin( pS[:pO->n1B] ) copyout( pR[:pO->n1B] )
          {
-            analyse(pS,0);
+            //analyse(pS,0);
             pF(pR,pS,pO,pW,pM);
             analyse(pR,1);
             for (i= 1; i < nI; i+= 2 )

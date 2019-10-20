@@ -25,7 +25,7 @@ void initHack (void)
 #ifdef NAN
    D3MapKeyVal *pKV= (D3MapKeyVal*)&gDefObsKV; // HACK! const violation
    pKV->v2[1]= NAN;
-   printf("initHack() - NAN set: %G\n", pKV->v2[1]);
+   LOG("initHack() - NAN set: %G\n", pKV->v2[1]);
 #endif
 } // initHack
 

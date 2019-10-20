@@ -3,6 +3,7 @@
 // (c) Diffusion3D Project Contributors Jan-June 2019
 
 #include "diffTestUtil.h"
+#include "diffTestHacks.h"
 
 typedef struct
 {
@@ -154,89 +155,55 @@ void release (DiffTestContext *pC)
    for (int i= 0; i<2; i++) { if (pC->pSR[i]) { free(pC->pSR[i]); pC->pSR[i]= NULL; } }
 } // release
 
-typedef struct
-{
-   const char *fs, *eol;
-} FmtDesc;
 
-int dumpScalarRegion (char *pCh, int maxCh, const DiffScalar * pS, const MMV3I *pRegion, const Stride s[3])
-{
-   FmtDesc fd={"%.3G ","\n"};
-   int nCh= 0;
-   for (Index z= pRegion->vMin.z; z <= pRegion->vMax.z; z++)
-   {
-      for (Index y= pRegion->vMin.y; y <= pRegion->vMax.y; y++)
-      {
-         for (Index x= pRegion->vMin.x; x <= pRegion->vMax.x; x++)
-         {
-            const size_t i= x * s[0] + y * s[1] + z * s[2];
-            nCh+= snprintf(pCh+nCh, maxCh-nCh, fd.fs, pS[i]);
-         }
-         nCh+= snprintf(pCh+nCh, maxCh-nCh, fd.eol);
-      }
-      nCh+= snprintf(pCh+nCh, maxCh-nCh, fd.eol);
-   }
-   return(nCh);
-} // dumpScalarRegion
-
-int dumpMapRegion (char *pCh, int maxCh, const D3MapElem * pM, const MMV3I *pRegion, const Stride s[3])
-{
-   FmtDesc fd={"0x%x ","\n"};
-   int nCh= 0;
-   for (Index z= pRegion->vMin.z; z <= pRegion->vMax.z; z++)
-   {
-      for (Index y= pRegion->vMin.y; y <= pRegion->vMax.y; y++)
-      {
-         for (Index x= pRegion->vMin.x; x <= pRegion->vMax.x; x++)
-         {
-            const size_t i= x * s[0] + y * s[1] + z * s[2];
-            nCh+= snprintf(pCh+nCh, maxCh-nCh, fd.fs, pM[i]);
-         }
-         nCh+= snprintf(pCh+nCh, maxCh-nCh, fd.eol);
-      }
-      nCh+= snprintf(pCh+nCh, maxCh-nCh, fd.eol);
-   }
-   return(nCh);
-} // dumpMapRegion
-
-void dumpSMR (const DiffScalar * pS, const D3MapElem * pM, const V3I *pC, int a)
-{
-   const MMV3I mm= {pC->x-a,pC->y-a,pC->z-a, pC->x+a,pC->y+a,pC->z+a};
-   char buff[1<<14];
-   const int m= sizeof(buff)-1;
-   //adjustMMV3I(&mm, a);
-   int n= dumpScalarRegion(buff, m, pS, &mm, gCtx.org.stride);
-
-   if (pM)
-   {
-      Stride s[3]={ 1, gCtx.org.def.x, gCtx.org.def.x * gCtx.org.def.y };
-
-      n+= dumpMapRegion(buff+n, m-n, pM, &mm, s);
-   }
-   if (n > 0) { printf("C(%d,%d,%d):-\n%s", pC->x, pC->y, pC->z, buff); }
-} // dumpSMR
-
-typedef struct
-{
-   U32 nHood, iter, mIvl, samples;
-   DiffScalar  rD;
-} TestParam;
-
-typedef struct // Analytic Comparison
-{
-   SMVal          tProc;
-   SearchResult  sr;
-} ACTestRes;
-
-#define PSM_ID_PLAIN  (0)
-#define PSM_ID_HOST   (1)
-#define PSM_ID_CUDA   (2)
-#define PSM_ID_KERN   (3)
+#define PSM_ID_HOST   (0)
+#define PSM_ID_CUDA   (1)
+#define PSM_ID_KERN   (2)
+#define PSM_ID_PLAIN  (3)
 #define PSM_NCAT  (4)
+#define PSM_NMCAT (2)
 typedef struct // Performance
 {
    StatMomD1R2 sm[PSM_NCAT];
+   FBuf raw[PSM_NCAT];
+   FBuf mes[PSM_NMCAT];
+   void *p;
 } PerfTestRes;
+
+void setNF64 (F64 r[], const int n, F64 v) { for (int i=0; i<n; i++) { r[i]= v; } }
+Bool32 initPTR (PerfTestRes *pPTR, const int nS, const int nM)
+{
+   int n= nS * PSM_NCAT + nM * 2;
+   float *pF= malloc(sizeof(*pF) * n);
+   //LOG_CALL("(.. %d,%d) -> %d %p\n", nS, nM, n, pF);
+   if (pF)
+   {
+      pPTR->p= pF;
+      for (int i= 0; i<PSM_NCAT; i++)
+      {
+         setNF64(pPTR->sm[i].m, 3, 0);
+         pPTR->raw[i].pF=   pF;
+         pPTR->raw[i].maxF= nS;
+         pPTR->raw[i].nF=   0;
+         pF+= nS;
+      }
+      for (int i= 0; i<PSM_NMCAT; i++)
+      {
+         pPTR->mes[i].pF= pF;
+         pPTR->mes[i].maxF= nM;
+         pPTR->mes[i].nF=   0;
+         pF+= nM;
+      }
+      return(TRUE);
+   }
+   return(FALSE);
+} // initPTR
+
+void addObs (PerfTestRes *pR, const int c, const float v)
+{
+   statMom1Add(pR->sm+c, v);
+   addFB(pR->raw+c, v);
+} // addObs
 
 #include "hostFMA.h"
 
@@ -249,8 +216,7 @@ void testPerf (PerfTestRes *pR, const TestParam *pP)
 
    if (initIsoW(gCtx.wPhase[0].w, pP->rD, pP->nHood, 0) > 0)
    {
-      const int maxM= 1 + (pP->iter / MAX(1,pP->mIvl));
-      memset(pR, 0, sizeof(*pR));
+      const int maxM= 1+DIV_RUP(pP->iter, pP->mIvl);
       
       LOG("maxM=%d\n", maxM);
       // important to warm up
@@ -260,12 +226,13 @@ void testPerf (PerfTestRes *pR, const TestParam *pP)
 
       if (hostSetupFMA(&hostFMA, ">", 0, &(gCtx.org)))
       {
-         LOG("*CAT: %s MKF\n","Host-ACC");
+         LOG("*CAT: %s Func.\n","Host");
          for (int iS=0; iS<pP->samples; iS++)
          {
             iT= 0;
             initFieldVCM(gCtx.pSR[0], &(gCtx.org), NULL, NULL, &gMSI);
             deltaT();
+            //hostAnalyse(allocNF(pR->mes+PSM_ID_HOST, 4), &hostFMA, gCtx.pSR[iR]);
             while (iT < pP->iter)
             {
                U32 iM, iR= pP->iter - iT;
@@ -274,25 +241,26 @@ void testPerf (PerfTestRes *pR, const TestParam *pP)
                iR= iT & 0x1;
                iT+= diffProcIsoD3SxM(gCtx.pSR[iR^0x1], gCtx.pSR[iR], &(gCtx.org), gCtx.wPhase, gCtx.pM, iM, pP->nHood);
                iR= iT & 0x1;
-               hostAnalyse(&hostFMA, gCtx.pSR[iR]);
+               hostAnalyse(allocNF(pR->mes+PSM_ID_HOST, 4), &hostFMA, gCtx.pSR[iR]);
             }
             dt= deltaT();
-            statMom1Add(pR->sm+PSM_ID_HOST, dt);
-         }
+            addObs(pR, PSM_ID_HOST, dt);
+            LOG("s%d %G\n", iS, dt);
+          }
          hostTeardownFMA(&hostFMA);
       }
 
       if (diffSetupFMA(maxM, ">", 0, &(gCtx.org)))
       {
          diffSetIntervalFMA(pP->mIvl);
-         LOG("*CAT: %s MKF\n","CUDA");
+         LOG("*CAT: %s Func.\n","CUDA");
          for (int iS=0; iS<pP->samples; iS++)
          {
             initFieldVCM(gCtx.pSR[0], &(gCtx.org), NULL, NULL, &gMSI);
             deltaT();
             iT= diffProcIsoD3SxM(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), gCtx.wPhase, gCtx.pM, pP->iter, pP->nHood);
             dt= deltaT();
-            statMom1Add(pR->sm+PSM_ID_CUDA, dt);
+            addObs(pR, PSM_ID_CUDA, dt);
             LOG("s%d %G\n", iS, dt);
             FMAPkt *pK; int nK;
             nK= diffGetFMA(&pK, TRUE);
@@ -300,27 +268,28 @@ void testPerf (PerfTestRes *pR, const TestParam *pP)
             {
                FMAPkt *pL= pK + nK-1;
                LOG("\ti%d: %G %G %G %G\t(kt=%G+%G)\n", pL->i, pL->m[0], pL->m[1], pL->m[2], pL->m[3], pL->dt[0], pL->dt[1]);
-               dt= pK->dt[0] + pK->dt[1];
-               for (int iK= 1; iK < nK; iK++)
+               dt= 0;
+               for (int iK= 0; iK < nK; iK++)
                {
-                  //LOG("\ti%d: %G %G %G %G\t%G %G\n", pK->i, pK->m[0], pK->m[1], pK->m[2], pK->m[3], pK->dt[0], pK->dt[1]);
+                  float *pF= allocNF(pR->mes+PSM_ID_CUDA, 4);
+                  if (pF) { memcpy(pF, pK->m, sizeof(pK->m)); }
                   dt+= pK->dt[0] + pK->dt[1];
                   pK++;
                }
-               statMom1Add(pR->sm+PSM_ID_KERN, dt);
+               addObs(pR, PSM_ID_KERN, dt);
             }
          }
          diffTeardownFMA();
       }
 
-      LOG("*CAT: %s MKF\n","NO");
+      LOG("*CAT: %s Func.\n","No");
       for (int iS=0; iS<pP->samples; iS++)
       {
          initFieldVCM(gCtx.pSR[0], &(gCtx.org), NULL, NULL, &gMSI);
          deltaT();
          iT= diffProcIsoD3SxM(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), gCtx.wPhase, gCtx.pM, pP->iter, pP->nHood);
          dt= deltaT();
-         statMom1Add(pR->sm+PSM_ID_PLAIN, dt);
+         addObs(pR, PSM_ID_PLAIN, dt);
          LOG("s%d %G\n", iS, dt);
       }
    }
@@ -330,6 +299,12 @@ void testPerf (PerfTestRes *pR, const TestParam *pP)
       LOG_CALL("() - complete %d samples\n", t);
    }
 } // testPerf
+
+typedef struct // Analytic Comparison
+{
+   SMVal          tProc;
+   SearchResult  sr;
+} ACTestRes;
 
 U32 testAn (ACTestRes *pR, const TestParam *pP)
 {
@@ -482,7 +457,7 @@ U32 testMap (RedRes *pRR, const TestParam * pTP, const MapDesc * pMD, U32 iT, co
 
    iN= iT & 1;
    initFieldVCM(gCtx.pSR[iN], &(gCtx.org), NULL, NULL, &gMSI);
-   if (dumpR > 0) { dumpSMR(gCtx.pSR[iN], gCtx.pM, &(gMSI.c), dumpR); }
+   if (dumpR > 0) { dumpSMR(gCtx.pSR[iN], gCtx.pM, &(gMSI.c), dumpR, &(gCtx.org)); }
 
    reduct3_2_0(&rrN, gCtx.ws.p, gCtx.pSR[iN], &(gCtx.org), 0);
    printf("Initial SMM: %G, %G, %G\n", rrN.sum, rrN.mm.vMin, rrN.mm.vMax );
@@ -504,7 +479,7 @@ U32 testMap (RedRes *pRR, const TestParam * pTP, const MapDesc * pMD, U32 iT, co
 
    // Clear NAN / -1 for tally
    if (testV > 0) { resetFieldVCM(gCtx.pSR[iN], &(gCtx.org), gCtx.pM, NULL, 0); }
-   if (dumpR > 0) { dumpSMR(gCtx.pSR[iN], NULL, &(gMSI.c), dumpR); }
+   if (dumpR > 0) { dumpSMR(gCtx.pSR[iN], NULL, &(gMSI.c), dumpR, &(gCtx.org)); }
 
    const char mode= 0;
    reduct3_2_0(&rrN, gCtx.ws.p, gCtx.pSR[iN], &(gCtx.org), mode);
@@ -525,6 +500,57 @@ U32 testMap (RedRes *pRR, const TestParam * pTP, const MapDesc * pMD, U32 iT, co
    }
    return(iT);
 } // testMap
+
+void dumpPerfTestRes (const PerfTestRes *pR)
+{
+   const char *catLab[PSM_NCAT]={"HFHT","CFHT","CFKT","NFHT"};
+   StatResD1R2 sr;
+   int iC;
+
+   report(OUT,"\n\nCat.\tMean\tVar.");
+   for (iC= 0; iC<PSM_NCAT; iC++)
+   {
+      if (statMom1Res1(&sr, pR->sm+iC, 1) > 0)
+      {
+         report(OUT,"\n%s\t%6G\t%6G", catLab[iC], sr.m, sr.v);
+      }
+   }
+   report(OUT,"\n\nCat.\tN.Smpl\tRaw...");
+   for (iC= 0; iC<PSM_NCAT; iC++)
+   {
+      report(OUT,"\n%s\t%d", catLab[iC], pR->raw[iC].nF);
+      for (int iR= 0; iR<pR->raw[iC].nF; iR++)
+      {
+         report(OUT,"\t%6G", pR->raw[iC].pF[iR]);
+      }
+   }
+   iC= 0;   // Get first category with measures
+   while ((iC < PSM_NMCAT) && (pR->mes[iC].nF <= 0)) { iC++; }
+   if (iC < 2)
+   {
+      int i= iC;
+      report(OUT,"\n\n%s K M S V", catLab[i]);
+      while (++i < PSM_NMCAT)
+      {
+         if (pR->mes[i].nF > 0) { report(OUT,"\t\t%s K M S V", catLab[i]); }
+      }
+      for (int iM= 0; (iM+4) <= pR->mes[iC].nF; iM+= 4)
+      {
+         const float *pM= pR->mes[iC].pF + iM;
+         report(OUT,"\n%6G\t%6G\t%6G\t%6G", pM[0], pM[1], pM[2], pM[3]);
+         i= iC;
+         while (++i < PSM_NMCAT)
+         {
+            if (pR->mes[i].nF >= (iM+4))
+            {
+               pM= pR->mes[i].pF+iM;
+               report(OUT,"\t\t%6G\t%6G\t%6G\t%6G", pM[0], pM[1], pM[2], pM[3]);
+            }
+         }
+      }
+   }
+   report(OUT,"\n\n");
+} // dumpPerfTestRes
 
 int main (int argc, char *argv[])
 {
@@ -565,21 +591,32 @@ int main (int argc, char *argv[])
       {
 #if 1
          TestParam   param;
-         PerfTestRes res;
-         StatResD1R2 sr;
+         PerfTestRes res={0};
+
          param.nHood= 6;
          param.iter=  100;
          param.rD=    0.5;
          param.mIvl=  10;
          param.samples= 3;
+         initPTR(&res, param.samples, 4 * (1 + DIV_RUP(param.iter, param.mIvl)));
          testPerf(&res, &param);
+         dumpPerfTestRes(&res);
+/*
          for (int iC= 0; iC<PSM_NCAT; iC++)
          {
             if (statMom1Res1(&sr, res.sm+iC, 1) > 0)
             {
-               report(OUT,"%d:\t%G\t%G\n", iC, sr.m, sr.v);
+               report(OUT,"%d:\t%G\t%G (nR=%d)\n", iC, sr.m, sr.v, res.raw[iC].nF);
             }
          }
+         for (int iC= 0; iC<PSM_NCAT; iC++)
+         {
+            if (statMom1Res1(&sr, res.raw+iC, 1) > 0)
+            {
+               report(OUT,"%d:\t%G\t%G (nR=%d)\n", iC, res.raw[iC].nF);
+            }
+         } */
+         if (res.p) { free(res.p); memset(&res, 0, sizeof(res)); }
 #else
          static const U8 nHoods[]={6};//,14,18,26};
          compareAnNHI(nHoods, sizeof(nHoods), 20, 100);
@@ -597,7 +634,7 @@ int main (int argc, char *argv[])
          param.rD=   0.5;
          iT= testMap(&rr, &param, &md, iT, "NRED.rgb");
          iN= iT & 1;
-         printf("rr: s=%G um=%G mm=%G,%G\n", rr.sum, rr.uMin, rr.mm.vMin, rr.mm.vMax);
+         LOG("rr: s=%G um=%G mm=%G,%G\n", rr.sum, rr.uMin, rr.mm.vMin, rr.mm.vMax);
 
          // dependant diffusion test
          if (1 == md.mapElemBytes)
@@ -616,7 +653,7 @@ int main (int argc, char *argv[])
                //param.iter= 200;
                iT= testMap(&rr, &param, &md, 0, "NDEP.rgb");
                iN= iT & 1;
-               printf("rr: s=%G um=%G mm=%G,%G\n", rr.sum, rr.uMin, rr.mm.vMin, rr.mm.vMax);
+               LOG("rr: s=%G um=%G mm=%G,%G\n", rr.sum, rr.uMin, rr.mm.vMin, rr.mm.vMax);
 
                // swap back for cleanup
                SWAP(void*, gCtx.pMC, gCtx.pM);
