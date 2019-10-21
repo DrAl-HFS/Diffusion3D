@@ -23,7 +23,7 @@ typedef double DiffScalar;
 // Buffer organisation (one or more planar/interleaved scalar fields)
 typedef struct
 {
-   V3I      def;
+   V3I      def; // TODO -> int def[3];
    int      nPhase;
    Stride   stride[DIFF_DIM], step[6];
    size_t   phaseStride;

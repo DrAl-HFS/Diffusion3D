@@ -32,7 +32,7 @@ typedef struct
 {
    FileInfo file;
    DataOrg  org;
-   int       maxIter;
+   int       isoDef, maxIter;
 } ArgInfo;
 
 static DiffTestContext gCtx={0,};
@@ -79,35 +79,50 @@ Bool32 getOrg (DataOrg *pDO, const FileInfo *pFI, U8 verbose)
       pDO->elemBytes= pFI->bytes / x;
       if (verbose)
       {
-         printf("getOrg(%s) - [%u]=", pFI->name, pDO->nDef);
+         LOG("getOrg(%s) - [%u]=", pFI->name, pDO->nDef);
          for (U8 i=0; i < pDO->nDef; i++) { printf("%u ", pDO->def[i]); }
-         printf("\n * %u = %zu (%zu)\n", pDO->elemBytes, x, pFI->bytes);
+         LOG("\n * %u = %zu (%zu)\n", pDO->elemBytes, x, pFI->bytes);
       }
       return(x <= pFI->bytes);
    }
    return(FALSE);
 } // getOrg
 
-void setDefaultDO (DataOrg *pO)
+void setDefaultDO (DataOrg *pO, const int d)
 {
    if (0 == pO->nDef)
    {  
       pO->nDef= 3;
-      pO->def[0]= pO->def[1]= pO->def[2]= 256;
+      pO->def[0]= pO->def[1]= pO->def[2]= d;
       pO->elemBytes= 8;
    }
 } // setDefaultDO
 
+int getVal (int *pV, const char *pCh)
+{
+   int t= -1;
+   if ((sscanf(pCh,"%d",&t) > 0) && (t > 0)) { *pV= t; return(1); } // # digits?
+   return(0);
+} // getVal
+
 void scanArgs (ArgInfo *pAI, char *v[], const int n, U8 verbose)
 {
+   if (pAI->isoDef <= 0) { pAI->isoDef= 256; }
+   if (pAI->maxIter <= 0) { pAI->maxIter= 100; }
    for (int i=0; i<n; i++)
    {
       char *pC= v[i];
       int a=-1;
-      if ( isdigit(pC[0]) )
+      if ('-' == pC[0]) switch(pC[1])
       {
-         sscanf(pC,"%d",&a);
-         if (a >= 0) { pAI->maxIter= a; }
+         case 'D' : getVal(&(pAI->isoDef),pC+2); break;
+         case 'I' : getVal(&(pAI->maxIter),pC+2); break;
+      }
+      else if ( isdigit(pC[0]) )
+      {  // retained for old script compatibility
+         int t;
+         sscanf(pC,"%d",&t);
+         if (t >= 0) { pAI->maxIter= t; }
       }
       else
       {
@@ -121,7 +136,7 @@ void scanArgs (ArgInfo *pAI, char *v[], const int n, U8 verbose)
          }
       }
    }
-   if (NULL == pAI->file.name) { setDefaultDO(&(pAI->org)); }
+   if (NULL == pAI->file.name) { setDefaultDO(&(pAI->org), pAI->isoDef); }
 } // scanArgs
 
 Bool32 init (DiffTestContext *pC, U16 def[3])
@@ -211,8 +226,12 @@ void addObs (PerfTestRes *pR, const int c, const float v)
 void testPerf (PerfTestRes *pR, const TestParam *pP)
 {
    HostFMA  hostFMA={0};
-   int iT=0, iN= 0, iA= 0;
-   float dt;
+   int iT=0, iR, iM;
+   float dt, m[4]={0,};
+   const char oprStr[]=">";
+   const float tD= 0.0; //0.5 / prodNI(&(gCtx.org.def.x), 3);
+   const size_t fieldBytes= sizeof(DiffScalar) * gCtx.org.n1B;
+   size_t refBytes= 0;
 
    if (initIsoW(gCtx.wPhase[0].w, pP->rD, pP->nHood, 0) > 0)
    {
@@ -221,41 +240,72 @@ void testPerf (PerfTestRes *pR, const TestParam *pP)
       LOG("maxM=%d\n", maxM);
       // important to warm up
       initFieldVCM(gCtx.pSR[0], &(gCtx.org), NULL, NULL, &gMSI);
+      setupAcc(1,0); // Ensure GPU ACC for diffusion.
       diffProcIsoD3SxM(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), gCtx.wPhase, gCtx.pM, 10, pP->nHood);
       LOG_CALL("() - warmup complete\tStarting %d samples/Category. Iterations: %d total, %d measure interval\n", pP->samples, pP->iter, pP->mIvl);
-
-      if (hostSetupFMA(&hostFMA, ">", 0, &(gCtx.org)))
+      
+      // Baseline
+      LOG("*CAT: %s Func.\n","No");
+      for (int iS=0; iS<pP->samples; iS++)
       {
+         iT= 0;
+         initFieldVCM(gCtx.pSR[0], &(gCtx.org), NULL, NULL, &gMSI);
+         deltaT();
+         iT= diffProcIsoD3SxM(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), gCtx.wPhase, gCtx.pM, pP->iter, pP->nHood);
+         dt= deltaT();
+         addObs(pR, PSM_ID_PLAIN, dt);
+         LOG("s%d %G\n", iS, dt);
+         iR= iT & 0x1;
+      }
+      if (refBytes && gCtx.ws.p && (gCtx.ws.bytes >= fieldBytes))
+      {  // Copy baseline result buffer for sanity check
+         LOG("memcpy(%p, %p, %zu)\n", gCtx.ws.p, gCtx.pSR[iT&0x1], fieldBytes);
+         memcpy(gCtx.ws.p, gCtx.pSR[iR], fieldBytes);
+         refBytes= fieldBytes;
+      }
+
+      // OpenACC - host
+      if (hostSetupFMA(&hostFMA, oprStr, tD, &(gCtx.org)))
+      {
+         hostAnalyse(m, &hostFMA, gCtx.pSR[iR]); LOG("Baseline post-proc measures: %G %G %G %G\n", m[0], m[1], m[2], m[3]);
          LOG("*CAT: %s Func.\n","Host");
          for (int iS=0; iS<pP->samples; iS++)
          {
             iT= 0;
             initFieldVCM(gCtx.pSR[0], &(gCtx.org), NULL, NULL, &gMSI);
             deltaT();
-            //hostAnalyse(allocNF(pR->mes+PSM_ID_HOST, 4), &hostFMA, gCtx.pSR[iR]);
             while (iT < pP->iter)
             {
-               U32 iM, iR= pP->iter - iT;
+               iR= pP->iter - iT;
                iM= MIN(pP->mIvl, iR);
                iM= MAX(1, iM);
-               iR= iT & 0x1;
+               iR= iT & 0x1; // previous result buffer index
+               setupAcc(1,0); // Switch to GPU ACC for diffusion...
                iT+= diffProcIsoD3SxM(gCtx.pSR[iR^0x1], gCtx.pSR[iR], &(gCtx.org), gCtx.wPhase, gCtx.pM, iM, pP->nHood);
+               setupAcc(0,0); // ...host ACC for analysis
                iR= iT & 0x1;
                hostAnalyse(allocNF(pR->mes+PSM_ID_HOST, 4), &hostFMA, gCtx.pSR[iR]);
             }
             dt= deltaT();
             addObs(pR, PSM_ID_HOST, dt);
             LOG("s%d %G\n", iS, dt);
-          }
+         }
          hostTeardownFMA(&hostFMA);
       }
+      if (refBytes > 0)
+      {
+         iR= iT & 0x1;
+         LOG("***Baseline-HostFMA memcmp() -> %d\n", memcmp(gCtx.ws.p, gCtx.pSR[iR], refBytes));
+      }
 
-      if (diffSetupFMA(maxM, ">", 0, &(gCtx.org)))
+      // CUDA
+      if (diffSetupFMA(maxM, oprStr, tD, &(gCtx.org)))
       {
          diffSetIntervalFMA(pP->mIvl);
          LOG("*CAT: %s Func.\n","CUDA");
          for (int iS=0; iS<pP->samples; iS++)
          {
+            iT= 0;
             initFieldVCM(gCtx.pSR[0], &(gCtx.org), NULL, NULL, &gMSI);
             deltaT();
             iT= diffProcIsoD3SxM(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), gCtx.wPhase, gCtx.pM, pP->iter, pP->nHood);
@@ -281,16 +331,10 @@ void testPerf (PerfTestRes *pR, const TestParam *pP)
          }
          diffTeardownFMA();
       }
-
-      LOG("*CAT: %s Func.\n","No");
-      for (int iS=0; iS<pP->samples; iS++)
+      if (refBytes > 0)
       {
-         initFieldVCM(gCtx.pSR[0], &(gCtx.org), NULL, NULL, &gMSI);
-         deltaT();
-         iT= diffProcIsoD3SxM(gCtx.pSR[1], gCtx.pSR[0], &(gCtx.org), gCtx.wPhase, gCtx.pM, pP->iter, pP->nHood);
-         dt= deltaT();
-         addObs(pR, PSM_ID_PLAIN, dt);
-         LOG("s%d %G\n", iS, dt);
+         iR= iT & 0x1;
+         LOG("***Baseline-CUDA memcmp() -> %d\n", memcmp(gCtx.ws.p, gCtx.pSR[iR], refBytes));
       }
    }
    {
@@ -532,7 +576,7 @@ void dumpPerfTestRes (const PerfTestRes *pR)
       report(OUT,"\n\n%s K M S V", catLab[i]);
       while (++i < PSM_NMCAT)
       {
-         if (pR->mes[i].nF > 0) { report(OUT,"\t\t%s K M S V", catLab[i]); }
+         if (pR->mes[i].nF > 0) { report(OUT,"\t\t\t\t\t%s K M S V", catLab[i]); }
       }
       for (int iM= 0; (iM+4) <= pR->mes[iC].nF; iM+= 4)
       {
@@ -590,32 +634,18 @@ int main (int argc, char *argv[])
       if (0 == mapID) // && (4 == md.mapElemBytes))
       {
 #if 1
-         TestParam   param;
+         TestParam   param;   // TODO - parameterise from CLI
          PerfTestRes res={0};
 
          param.nHood= 6;
-         param.iter=  100;
+         param.iter=  gAI.maxIter;
          param.rD=    0.5;
          param.mIvl=  10;
-         param.samples= 3;
+         param.samples= 20;
          initPTR(&res, param.samples, 4 * (1 + DIV_RUP(param.iter, param.mIvl)));
          testPerf(&res, &param);
          dumpPerfTestRes(&res);
-/*
-         for (int iC= 0; iC<PSM_NCAT; iC++)
-         {
-            if (statMom1Res1(&sr, res.sm+iC, 1) > 0)
-            {
-               report(OUT,"%d:\t%G\t%G (nR=%d)\n", iC, sr.m, sr.v, res.raw[iC].nF);
-            }
-         }
-         for (int iC= 0; iC<PSM_NCAT; iC++)
-         {
-            if (statMom1Res1(&sr, res.raw+iC, 1) > 0)
-            {
-               report(OUT,"%d:\t%G\t%G (nR=%d)\n", iC, res.raw[iC].nF);
-            }
-         } */
+
          if (res.p) { free(res.p); memset(&res, 0, sizeof(res)); }
 #else
          static const U8 nHoods[]={6};//,14,18,26};

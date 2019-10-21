@@ -75,7 +75,7 @@ $(TARGET) : $(OBJ) $(MKF_LIBS)
 .PHONY: run map clean
 
 run: $(TARGET)
-	./$(TARGET)
+	./$(TARGET) -D256 -I130 > runDat.txt
 
 map: $(TARGET)
 	./$(TARGET) s256u8.raw

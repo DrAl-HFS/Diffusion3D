@@ -463,19 +463,27 @@ static FMAPkt *nextPkt (FMACtx *pC)
    return( &(pC->defP) );
 } // nextPkt
 
-static Bool32 initFMACtx (FMACtx *pC, const DiffScalar *pF, const DiffOrg *pO)
+static Bool32 initFMACtx (FMACtx *pC, const DiffOrg *pO)
 {
-   #pragma acc host_data use_device(pF)
-   { pC->pF[0]= pF; }
-   if (setupFields(&(pC->inf), pC->pF, 1, &(pO->def.x), sizeof(DiffScalar), 0) &&
-         setBMO(&(pC->bmo), pC->inf.pD, 0))
+   size_t w=0;
+   //#pragma acc host_data use_device(pF)
+   //{ pC->pF[0]= pF; }
+   pC->pF[0]= NULL;
+   //pC->def[0]= pO->def.x; pC->def[1]= pO->def.y; pC->def[2]= pO->def.z;
+   if (setupFields(&(pC->inf), pC->pF, 1, &(pO->def.x), sizeof(DiffScalar), 0))
    {
-      setBinMapF64(&(pC->map), ">", 0);
-      pC->fScale= 3.0 / sumNI(pC->inf.pD, 3);
-      //pC->pW= NULL; // bmcReset(pC->pW); ???
-      return(TRUE);
+      //w= setBMO(&(pC->bmo), pC->inf.pD, 0);
+      if (setBMO(&(pC->bmo), pC->inf.pD, 0)) //(w > 0)
+      {
+         //setBinMapF64(&(pC->map), ">", 0);
+         pC->fScale= 3.0 / sumNI(pC->inf.pD, 3); // reciprocal mean
+         //pC->pDevW= NULL; // bmcReset(pC->pW); ???
+         return(TRUE);
+      }
    }
    //else
+   //ERROR_CALL("() %zu\n", w);
+   //mkfCUDACleanup(1);
    return(FALSE);
 } // initFMACtx
 
@@ -520,7 +528,7 @@ Bool32 diffSetupFMA (const int maxSamples, const char relOpr[], DiffScalar t, co
    FMACtx *pC= &gAnCtx;
    if (pO)
    {
-      if (!initFMACtx(pC, NULL, pO)) { return(FALSE); }
+      if (!initFMACtx(pC, pO)) { return(FALSE); }
    }
    if ((NULL == pC->pP) && (maxSamples > 0) && (0 == pC->maxP))
    {
@@ -547,8 +555,8 @@ int diffGetFMA (FMAPkt **ppAP, Bool32 reset)
 void diffTeardownFMA (void)
 {  // release CUDA lazy alloc buffers
    FMACtx *pC= &gAnCtx;
-   mkfCUDACleanup();
    binMapCUDACleanup();
+   mkfCUDACleanup(0);
    memset(pC, 0, sizeof(*pC));
    diffSetIntervalFMA(-1); // disable
 } // diffTeardownFMA
