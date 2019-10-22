@@ -20,7 +20,7 @@ typedef struct
 
 /***/
 
-Bool32 hostSetupFMA (HostFMA *pC, const char relOpr[], DiffScalar t, const DiffOrg *pO)
+Bool32 hostSetupFMA (HostFMA *pC, const char relOpr[], const DiffScalar t, const float fScale, const DiffOrg *pO)
 {
 #ifndef HOST_FMA_DISABLE
    setupAcc(0,0); // set default to host side (multicore) acceleration
@@ -32,7 +32,7 @@ Bool32 hostSetupFMA (HostFMA *pC, const char relOpr[], DiffScalar t, const DiffO
       pC->pW= malloc(pC->bytesW);
       if (pC->pW)
       {  //size_t a= (size_t)(pC->pW); if (a & 0x3) { WARN("**UNALIGNED! %p\n", a); }
-         pC->mScale= 3.0 / sumNI(pC->def, 3); // reciprocal mean
+         pC->fScale= fScale;
          if (setBinMapF64(&(pC->map), relOpr, t)) { return(TRUE); }
       } else { pC->bytesW= 0; }
    }
@@ -53,7 +53,7 @@ Bool32 hostAnalyse (float *pM4, const HostFMA *pC, const DiffScalar *pF)
 #ifndef HOST_FMA_DISABLE
    if (pM4 && mkfAccGetBPFDSimple(pC->bpfd, pC->pW, pF, pC->def, &(pC->map)))
    {
-      mkfRefMeasureBPFD(pM4, pC->bpfd, pC->mScale);
+      mkfRefMeasureBPFD(pM4, pC->bpfd, pC->fScale);
       return(TRUE);
    }
 #endif // HOST_FMA_DISABLE

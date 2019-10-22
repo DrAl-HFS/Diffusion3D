@@ -32,7 +32,7 @@ typedef struct
 {
    FileInfo file;
    DataOrg  org;
-   int       isoDef, maxIter;
+   int       isoDef, maxIter, stepIter, nSample;
 } ArgInfo;
 
 static DiffTestContext gCtx={0,};
@@ -98,25 +98,40 @@ void setDefaultDO (DataOrg *pO, const int d)
    }
 } // setDefaultDO
 
-int getVal (int *pV, const char *pCh)
+int getVal (int *pR, const char *pCh)
 {
-   int t= -1;
-   if ((sscanf(pCh,"%d",&t) > 0) && (t > 0)) { *pV= t; return(1); } // # digits?
+   char *pE=NULL;
+   long int t= strtol(pCh, &pE, 0);
+
+   if (pE) { *pR= t; return(pE-pCh); } // # digits?
    return(0);
 } // getVal
 
 void scanArgs (ArgInfo *pAI, char *v[], const int n, U8 verbose)
 {
+   if (pAI->nSample <= 0) { pAI->nSample= 20; }
    if (pAI->isoDef <= 0) { pAI->isoDef= 256; }
    if (pAI->maxIter <= 0) { pAI->maxIter= 100; }
+   if (pAI->stepIter <= 0) { pAI->stepIter= 10; }
    for (int i=0; i<n; i++)
    {
       char *pC= v[i];
-      int a=-1;
+      int n;
       if ('-' == pC[0]) switch(pC[1])
       {
-         case 'D' : getVal(&(pAI->isoDef),pC+2); break;
-         case 'I' : getVal(&(pAI->maxIter),pC+2); break;
+
+         case 'S' : n= getVal(&(pAI->nSample),pC+2); break;
+         case 'D' : n= getVal(&(pAI->isoDef),pC+2); break;
+         case 'I' :
+            pC+= 2;
+            n= getVal(&(pAI->maxIter),pC);
+            if (n > 0)
+            {
+               n+= (',' == pC[n]);
+               pC+= n;
+               n= getVal(&(pAI->stepIter), pC);
+            }
+            break;
       }
       else if ( isdigit(pC[0]) )
       {  // retained for old script compatibility
@@ -222,14 +237,23 @@ void addObs (PerfTestRes *pR, const int c, const float v)
 
 #include "hostFMA.h"
 
+void deriveRadii (float r[3], const float mkf[4])
+{
+   const float s= 1.0 / (4 * M_PI);
+   r[0]= mkf[1] * s;
+   r[1]= sqrt(mkf[2] * s);
+   r[2]= pow(3 * mkf[3] * s, 1.0/3);
+} // deriveRadii
+
 //strExtFmtNSMV(" m=(",")")
-void testPerf (PerfTestRes *pR, const TestParam *pP)
+void testPerfMKF (PerfTestRes *pR, const TestParam *pP)
 {
    HostFMA  hostFMA={0};
    int iT=0, iR, iM;
-   float dt, m[4]={0,};
+   float dt, dr[3], mkf[4]={0,};
    const char oprStr[]=">";
-   const float tD= 0.0; //0.5 / prodNI(&(gCtx.org.def.x), 3);
+   const float fScale= 3.0 / sumNI(&(gCtx.org.def.x), 3);  // reciprocal mean
+   const float tD= pow(0.5, 0.90 * pP->iter); //1.0 / (256.0 * prodNI(&(gCtx.org.def.x), 3));
    const size_t fieldBytes= sizeof(DiffScalar) * gCtx.org.n1B;
    size_t refBytes= 0;
 
@@ -265,9 +289,15 @@ void testPerf (PerfTestRes *pR, const TestParam *pP)
       }
 
       // OpenACC - host
-      if (hostSetupFMA(&hostFMA, oprStr, tD, &(gCtx.org)))
+      if (hostSetupFMA(&hostFMA, oprStr, tD, fScale, &(gCtx.org)))
       {
-         hostAnalyse(m, &hostFMA, gCtx.pSR[iR]); LOG("Baseline post-proc measures: %G %G %G %G\n", m[0], m[1], m[2], m[3]);
+         const float rScale = 1.0 / fScale;
+         hostAnalyse(mkf, &hostFMA, gCtx.pSR[iR]); 
+         LOG("Baseline post-proc measures: %G %G %G %G\t(tD=%G)\n", mkf[0], mkf[1], mkf[2], mkf[3], tD);
+         deriveRadii(dr, mkf);
+         LOG("Derived radii: rB=%G rS=%G rV=%G\t(=%.1f %.1f %.1f lu)\n", dr[0], dr[1], dr[2], dr[0]*rScale, dr[1]*rScale, dr[2]*rScale);
+         LOG("rS/rB=%.2f\trV/rS=%.2f\t\n\n", dr[1]/dr[0], dr[2]/dr[1]);
+
          LOG("*CAT: %s Func.\n","Host");
          for (int iS=0; iS<pP->samples; iS++)
          {
@@ -299,7 +329,7 @@ void testPerf (PerfTestRes *pR, const TestParam *pP)
       }
 
       // CUDA
-      if (diffSetupFMA(maxM, oprStr, tD, &(gCtx.org)))
+      if (diffSetupFMA(maxM, oprStr, tD, fScale, &(gCtx.org)))
       {
          diffSetIntervalFMA(pP->mIvl);
          LOG("*CAT: %s Func.\n","CUDA");
@@ -342,7 +372,7 @@ void testPerf (PerfTestRes *pR, const TestParam *pP)
       for (int i=0; i<PSM_NCAT; i++) { t+= pR->sm[i].m[0]; }
       LOG_CALL("() - complete %d samples\n", t);
    }
-} // testPerf
+} // testPerfMKF
 
 typedef struct // Analytic Comparison
 {
@@ -424,7 +454,7 @@ void compareAnNHI (const U8 nHoods[], const U8 nNH, const U32 step, const U32 ma
 
 #ifdef  DIFF_FUMEAN
    FMAPkt *pK; int nK;
-   diffSetupFMA(max, ">", 0, &(gCtx.org));
+   diffSetupFMA(max, ">", 0, 3.0/sumNI(&(gCtx.org.def.x), 3), &(gCtx.org));
 #endif
    for (U8 h=0; h<nNH; h++)
    {
@@ -640,10 +670,12 @@ int main (int argc, char *argv[])
          param.nHood= 6;
          param.iter=  gAI.maxIter;
          param.rD=    0.5;
-         param.mIvl=  10;
-         param.samples= 20;
+         param.mIvl=  gAI.stepIter;
+         param.samples= gAI.nSample;
          initPTR(&res, param.samples, 4 * (1 + DIV_RUP(param.iter, param.mIvl)));
-         testPerf(&res, &param);
+         testPerfMKF(&res, &param);
+
+         report(OUT,"D%d N%d I%d,%d S%d\n", gAI.isoDef, param.nHood, param.iter, param.mIvl, param.samples);
          dumpPerfTestRes(&res);
 
          if (res.p) { free(res.p); memset(&res, 0, sizeof(res)); }

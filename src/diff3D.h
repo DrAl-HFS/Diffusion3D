@@ -117,7 +117,8 @@ extern Bool32 diffSetupFMA
 (
    const int      maxSamples, 
    const char     relOpr[], 
-   DiffScalar     t, 
+   const DiffScalar     t,
+   const float    fScale,
    const DiffOrg *pO
 );
 

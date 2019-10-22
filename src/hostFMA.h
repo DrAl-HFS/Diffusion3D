@@ -18,13 +18,13 @@ typedef struct
    MKFAccBinMap map;
    BMPackWord * pW;
    int         def[3];
-   float       mScale;
+   float       fScale;
 } HostFMA;
 
 
 /***/
 
-Bool32 hostSetupFMA (HostFMA *pC, const char relOpr[], DiffScalar t, const DiffOrg *pO);
+Bool32 hostSetupFMA (HostFMA *pC, const char relOpr[], const DiffScalar t, const float fScale, const DiffOrg *pO);
 
 void hostTeardownFMA (HostFMA *pC);
 

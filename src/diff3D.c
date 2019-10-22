@@ -523,7 +523,7 @@ void diffSetIntervalFMA (int ivl)
 } // diffSetFMAIvlPO2
 void diffResetIter (int i) { FMACtx *pC= &gAnCtx; pC->iterNext= i * pC->iterStep; }
 
-Bool32 diffSetupFMA (const int maxSamples, const char relOpr[], DiffScalar t, const DiffOrg *pO)
+Bool32 diffSetupFMA (const int maxSamples, const char relOpr[], const DiffScalar t, const float fScale, const DiffOrg *pO)
 {
    FMACtx *pC= &gAnCtx;
    if (pO)
